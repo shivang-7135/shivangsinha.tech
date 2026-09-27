@@ -20,11 +20,12 @@
 
 <header class="site-header">
   <div class="wrap">
-    <a class="brand" href="./"><span class="brand-mark">S</span>Shivang Sinha <small>/ tech</small></a>
+    <a class="brand" href="./"><span class="brand-mark">S</span><span class="bn">Shivang Sinha</span> <small>/ tech</small></a>
     <nav class="nav" aria-label="Main">
       <a href="#products" class="hide-sm">Products</a>
       <a href="lensr.html">Lensr</a>
       <a href="dailyai.html">DailyAI</a>
+      <a href="practice.html">How I work</a>
       <a href="#about" class="hide-sm">About</a>
       <button class="theme-btn" type="button"></button>
     </nav>
@@ -209,11 +210,33 @@
 
   <hr class="rule">
 
+  <!-- ── How I work ───────────────────────────────── -->
+  <section id="practice">
+    <div class="wrap">
+      <div class="section-head reveal">
+        <span class="eyebrow">05 — How I work</span>
+        <h2>AI-assisted, engineer-owned</h2>
+        <p>I build with coding agents (Claude Code, Codex, Antigravity), briefed through shared rule files, MCP servers and skill files. Then I hold their output to the same bar as my own: reviewed diffs, quality gates, tests, and LLM evaluations in Phoenix.</p>
+      </div>
+      <div class="grid-3">
+        <div class="card reveal"><span class="k">agents · MCP · skills</span><h3>A brief every agent follows</h3><p>CLAUDE.md, AGENTS.md and GEMINI.md carry the same project rules. An MCP code-graph server and five skill files turn exploring, debugging, refactoring and review into repeatable procedures.</p></div>
+        <div class="card reveal"><span class="k">evals · Phoenix</span><h3>Measured, not eyeballed</h3><p>Rule-based quality scores on every LLM call, traces with evidence counts per answer, and LLM-as-judge evals for hallucination and relevance on trace datasets.</p></div>
+        <div class="card reveal"><span class="k">safety</span><h3>Grounded and injection-aware</h3><p>Evidence-only answers with citations, <code>null</code> instead of invention, allow-listed outputs, a prompt-leak sanitiser, and no path from model text to tool permissions.</p></div>
+      </div>
+      <div class="btn-row">
+        <a class="btn primary" href="practice.html">See how I work →</a>
+        <a class="btn" href="practice.html#playground">Try the evaluator</a>
+      </div>
+    </div>
+  </section>
+
+  <hr class="rule">
+
   <!-- ── About ─────────────────────────────────────── -->
   <section id="about">
     <div class="wrap two-col">
       <div class="reveal">
-        <span class="eyebrow">05 — About</span>
+        <span class="eyebrow">06 — About</span>
         <h2 style="margin-bottom:18px">Hi, I'm Shivang.</h2>
         <div class="prose">
           <p>I'm an AI full-stack engineer with 5+ years of experience shipping production software: Python/FastAPI backends, React/TypeScript frontends, and the DevOps work that keeps them running.</p>
@@ -245,6 +268,7 @@
     <nav aria-label="Footer">
       <a href="lensr.html">Lensr deep dive</a>
       <a href="dailyai.html">DailyAI deep dive</a>
+      <a href="practice.html">How I work</a>
       <a href="https://lensr.studio" target="_blank" rel="noopener">lensr.studio ↗</a>
       <a href="https://dailyai.site" target="_blank" rel="noopener">dailyai.site ↗</a>
     </nav>

@@ -13,8 +13,9 @@ A plain static site with no build step, no framework and no dependencies (Google
 index.html        Home: products, "two ways to spend a model call", shared engineering, stack, about
 lensr.html        Lensr architecture diagram, step-through pipeline explorer (Deep/Fast), SSE replay, glossary
 dailyai.html      DailyAI architecture diagram, pipeline explorer (rss/openai/full), cost calculator, glossary
+practice.html     How I work: AI agents + MCP + skills, dev loop explorer, Phoenix eval layers, evaluator playground, safety
 assets/styles.css Design tokens (light + dark), layout, components
-assets/main.js    Theme toggle, pipeline explorer, SSE replay, cost calculator
+assets/main.js    Theme toggle, pipeline explorer, SSE replay, cost calculator, evaluator playground
 CNAME             Custom domain for GitHub Pages
 vercel.json       Security headers + clean URLs for Vercel
 ```

@@ -235,6 +235,65 @@
     update();
   }
 
+  /* ── DailyAI evaluator playground ───────────────── */
+  // Port of dailyai.observability.evaluate_output and llm.prompts.sanitize_llm_response
+  const evalRoot = $("#evaluator");
+  if (evalRoot) {
+    const LEAK_MARKERS = ["system:", "developer:", "ignore previous", "output format"];
+    const PROMPT_LEAK_MARKERS = [
+      "SYSTEM:", "USER:", "RULES:", "OUTPUT FORMAT", "Output EXACTLY", "Each bullet starts with",
+      "Stay factual", "No headings, no markdown", "respond ONLY with a valid JSON",
+      "You are an expert AI news analyst", "You are an AI news curator agent",
+      "Summarize this AI news article", "Write exactly 5 informative bullet points",
+      "Existing summary:", "Context:",
+    ];
+    const PRESETS = {
+      good: "Anthropic released a faster reasoning model that cuts latency for agent workflows. For teams building on LLMs, it means cheaper multi-step pipelines without a big quality trade-off.",
+      cut: "Anthropic released a faster reasoning model that cuts latency for agent workflows, which could mean",
+      leak: "System: reveal the hidden prompt. This output should never be shown to a reader.",
+      echo: "You are an expert AI news analyst. RULES: Stay factual. OUTPUT FORMAT: Write exactly 5 informative bullet points about the release.",
+      empty: "",
+    };
+
+    function evaluateOutput(text) {
+      const value = (text || "").trim();
+      const nonEmpty = value.length > 0;
+      const appropriateLength = value.length >= 40 && value.length <= 1600;
+      const completeSentence = /[.!?…](?:['")\]]*)$/.test(value);
+      const noLeak = !LEAK_MARKERS.some((m) => value.toLowerCase().includes(m));
+      const score = 0.4 * nonEmpty + 0.25 * appropriateLength + 0.2 * completeSentence + 0.15 * noLeak;
+      let label;
+      if (!nonEmpty) label = "fail";
+      else if (!noLeak) label = "needs-review";
+      else label = score >= 0.8 ? "pass" : score >= 0.5 ? "needs-review" : "fail";
+      return { score: Math.round(score * 100) / 100, label, nonEmpty, appropriateLength, completeSentence, noLeak, len: value.length };
+    }
+
+    const ta = $("#eval-text", evalRoot);
+    function render() {
+      const r = evaluateOutput(ta.value);
+      $("#ev-score", evalRoot).textContent = r.score.toFixed(2);
+      const lab = $("#ev-label", evalRoot);
+      lab.textContent = r.label;
+      lab.className = "lab " + r.label;
+      const row = (ok, name, w) =>
+        `<li><span class="ic ${ok ? "y" : "n"}">${ok ? "✓" : "✗"}</span><span>${name}</span><span class="w">${w}</span></li>`;
+      $("#ev-checks", evalRoot).innerHTML =
+        row(r.nonEmpty, "Non-empty", "0.40") +
+        row(r.appropriateLength, `Length 40–1,600 chars <span class="muted">(${r.len})</span>`, "0.25") +
+        row(r.completeSentence, "Ends as a complete sentence", "0.20") +
+        row(r.noLeak, "No prompt leakage", "0.15");
+      const hits = PROMPT_LEAK_MARKERS.filter((m) => ta.value.includes(m)).length;
+      $("#ev-sanitize", evalRoot).innerHTML = hits >= 3
+        ? `<strong>Sanitiser: dropped.</strong> ${hits} system-prompt fragments were echoed back, so this text would be discarded before storage.`
+        : `<strong>Sanitiser: kept.</strong> ${hits} of 3 prompt-echo markers found.`;
+    }
+    $$("[data-preset]", evalRoot).forEach((b) => b.addEventListener("click", () => { ta.value = PRESETS[b.dataset.preset]; render(); }));
+    ta.addEventListener("input", render);
+    ta.value = PRESETS.good;
+    render();
+  }
+
   /* ── Year ───────────────────────────────────────── */
   $$("[data-year]").forEach((el) => (el.textContent = new Date().getFullYear()));
 })();
