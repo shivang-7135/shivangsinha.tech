@@ -1,0 +1,255 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Shivang Sinha — AI Products</title>
+  <meta name="description" content="Shivang Sinha builds AI products end-to-end. Explore how Lensr (intent-aware AI search) and DailyAI (AI news, summarised once) work, including their data flow, architecture and design decisions.">
+  <meta property="og:title" content="Shivang Sinha — AI Products">
+  <meta property="og:description" content="How Lensr and DailyAI work, from the browser to the model and back.">
+  <meta property="og:url" content="https://shivangsinha.tech/">
+  <meta property="og:type" content="website">
+  <link rel="canonical" href="https://shivangsinha.tech/">
+  <link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,500;0,9..144,600;1,9..144,400&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="assets/styles.css">
+</head>
+<body>
+
+<header class="site-header">
+  <div class="wrap">
+    <a class="brand" href="./"><span class="brand-mark">S</span>Shivang Sinha <small>/ tech</small></a>
+    <nav class="nav" aria-label="Main">
+      <a href="#products" class="hide-sm">Products</a>
+      <a href="lensr.html">Lensr</a>
+      <a href="dailyai.html">DailyAI</a>
+      <a href="#about" class="hide-sm">About</a>
+      <button class="theme-btn" type="button"></button>
+    </nav>
+  </div>
+</header>
+
+<main>
+  <!-- ── Hero ─────────────────────────────────────── -->
+  <section class="hero">
+    <div class="wrap">
+      <span class="eyebrow">AI Full-Stack Engineer · M.Sc. NLP</span>
+      <h1>I build AI products<br><em>that show their work.</em></h1>
+      <p class="lede">
+        I'm Shivang. I design and ship LLM products end to end, from the React UI and API layer down to the
+        agent graphs, caches and observability underneath. This site covers two of them that are live today:
+        what each one does, how data moves through it, and why I built it that way.
+      </p>
+      <div class="hero-meta">
+        <span class="chip lensr-c"><span class="dot"></span><span style="color:var(--ink-2)">Lensr: AI search, live at lensr.studio</span></span>
+        <span class="chip daily-c"><span class="dot"></span><span style="color:var(--ink-2)">DailyAI: AI news, live at dailyai.site</span></span>
+      </div>
+      <div class="btn-row">
+        <a class="btn primary" href="#products">See the products</a>
+        <a class="btn" href="#two-models">How they differ</a>
+      </div>
+    </div>
+  </section>
+
+  <hr class="rule">
+
+  <!-- ── Products ──────────────────────────────────── -->
+  <section id="products">
+    <div class="wrap">
+      <div class="section-head reveal">
+        <span class="eyebrow">01 — Products</span>
+        <h2>Two products, shipped end to end</h2>
+        <p>Both are full-stack apps I built myself, covering frontend, backend, data, deployment and monitoring. Visit the live product, or open the deep dive to follow a request through the system step by step.</p>
+      </div>
+
+      <div class="products">
+        <!-- Lensr -->
+        <article class="product reveal">
+          <div class="product-top">
+            <div class="product-logo">
+              <span class="mark"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/><path d="M8 11a3 3 0 0 1 3-3"/></svg></span>
+              <h3>Lensr</h3>
+            </div>
+            <a class="product-url" href="https://lensr.studio" target="_blank" rel="noopener">lensr.studio ↗</a>
+          </div>
+          <p class="tagline">Ask anything and get a structured answer card instead of a page of links.</p>
+          <p>Lensr works out what you are trying to do (shop, plan a trip, cook, compare), sends the query to one of 35 specialised agents, searches and reads the live web, and streams back a card built for that task, with every source cited.</p>
+          <div class="stats">
+            <div class="stat"><b>35</b><span>intent agents</span></div>
+            <div class="stat"><b>10</b><span>purpose-built result cards</span></div>
+            <div class="stat"><b>SSE</b><span>live pipeline streaming</span></div>
+          </div>
+          <div class="mini-flow" aria-label="Lensr flow">
+            <span>query</span><i>→</i><span>classify</span><i>→</i><span>search</span><i>→</i><span>scrape</span><i>→</i><span>synthesize</span><i>→</i><span>card</span>
+          </div>
+          <div class="btn-row">
+            <a class="btn lensr" href="https://lensr.studio" target="_blank" rel="noopener">Open Lensr ↗</a>
+            <a class="btn" href="lensr.html">How it works →</a>
+          </div>
+        </article>
+
+        <!-- DailyAI -->
+        <article class="product daily reveal">
+          <div class="product-top">
+            <div class="product-logo">
+              <span class="mark"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5h13v14H6a2 2 0 0 1-2-2z"/><path d="M17 9h3v8a2 2 0 0 1-2 2"/><path d="M8 9h5M8 13h5M8 16h3"/></svg></span>
+              <h3>DailyAI</h3>
+            </div>
+            <a class="product-url" href="https://dailyai.site" target="_blank" rel="noopener">dailyai.site ↗</a>
+          </div>
+          <p class="tagline">The day's AI news, curated and summarised once, then served instantly.</p>
+          <p>DailyAI pulls AI stories from news feeds on a schedule, removes duplicates, then runs one LLM pass to select, summarise and tag them. It also scores how trustworthy each source is. Readers get cards straight from the database, so no model call runs when a page loads.</p>
+          <div class="stats">
+            <div class="stat"><b>9</b><span>LangGraph pipeline nodes</span></div>
+            <div class="stat"><b>0</b><span>LLM calls per page view</span></div>
+            <div class="stat"><b>30m</b><span>default refresh cycle</span></div>
+          </div>
+          <div class="mini-flow" aria-label="DailyAI flow">
+            <span>RSS</span><i>→</i><span>dedupe</span><i>→</i><span>curate</span><i>→</i><span>trust</span><i>→</i><span>rank</span><i>→</i><span>DB</span><i>→</i><span>reader</span>
+          </div>
+          <div class="btn-row">
+            <a class="btn daily" href="https://dailyai.site" target="_blank" rel="noopener">Open DailyAI ↗</a>
+            <a class="btn" href="dailyai.html">How it works →</a>
+          </div>
+        </article>
+      </div>
+    </div>
+  </section>
+
+  <hr class="rule">
+
+  <!-- ── Two models of compute ─────────────────────── -->
+  <section id="two-models">
+    <div class="wrap">
+      <div class="section-head reveal">
+        <span class="eyebrow">02 — The key idea</span>
+        <h2>Two ways to spend a model call</h2>
+        <p>Every LLM product has to decide when the model runs. Lensr and DailyAI make opposite choices on purpose, and that one decision shapes their architecture, latency and cost.</p>
+      </div>
+      <div class="compare">
+        <div class="compare-col reveal" style="--c:var(--lensr)">
+          <span class="eyebrow lensr-c">Lensr · compute per query</span>
+          <h3>Every question is new</h3>
+          <p class="muted" style="margin:0">You can't pre-compute an answer to a question nobody has asked yet, so Lensr does the work at request time and makes the wait useful.</p>
+          <div class="formula">cost ≈ queries × (classify + search + synthesize)</div>
+          <ul>
+            <li><strong>Streams every step</strong> over Server-Sent Events, so you watch it work instead of staring at a spinner.</li>
+            <li><strong>Runs steps in parallel.</strong> The web search starts before intent classification finishes.</li>
+            <li><strong>Semantic cache.</strong> A similar enough question from the last 24h returns instantly.</li>
+            <li><strong>Picks the model to fit the task:</strong> Haiku for routing and simple intents, Sonnet for deep synthesis.</li>
+          </ul>
+        </div>
+        <div class="compare-col reveal" style="--c:var(--daily)">
+          <span class="eyebrow daily-c">DailyAI · compute per refresh</span>
+          <h3>Everyone reads the same news</h3>
+          <p class="muted" style="margin:0">The day's AI news is the same for every reader, so DailyAI summarises it once and serves the stored result to everyone.</p>
+          <div class="formula">cost ≈ refreshes/day × feeds &nbsp;(not × readers)</div>
+          <ul>
+            <li><strong>A scheduler does the work</strong>, not the reader's click. APScheduler refreshes every 30 minutes.</li>
+            <li><strong>Summaries are stored and reused.</strong> Briefs are cached per article and language.</li>
+            <li><strong>Can run with no LLM at all.</strong> <code>rss</code> mode uses feed summaries and rule-based tagging.</li>
+            <li><strong>Cost stays flat as readership grows.</strong> It depends on the refresh interval, not on page views.</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <hr class="rule">
+
+  <!-- ── Principles ────────────────────────────────── -->
+  <section id="principles">
+    <div class="wrap">
+      <div class="section-head reveal">
+        <span class="eyebrow">03 — Shared engineering</span>
+        <h2>What both products have in common</h2>
+        <p>The products do different jobs, but I built both on the same engineering habits. Each one below is something you can point to in the code.</p>
+      </div>
+      <div class="grid-3">
+        <div class="card reveal"><span class="k">orchestration</span><h3>Typed agent graphs</h3><p>Both pipelines are LangGraph state machines. Each node reads and writes named keys on a typed state object, which makes every step inspectable, testable and easy to reorder.</p></div>
+        <div class="card reveal"><span class="k">resilience</span><h3>Graceful fallbacks</h3><p>If intent classification times out, Lensr answers as <code>general</code>. DailyAI falls back from one LLM provider to the next, and finally to plain RSS summaries. Users still get an answer when something fails.</p></div>
+        <div class="card reveal"><span class="k">cost</span><h3>Cache the expensive thing</h3><p>Lensr uses a pgvector semantic cache (Titan embeddings, cosine ≥ 0.88, 24h TTL). DailyAI stores its summaries in the database and reuses them for every reader.</p></div>
+        <div class="card reveal"><span class="k">observability</span><h3>Traced with Arize Phoenix</h3><p>Every LLM call, tool call and pipeline step is sent as an OpenTelemetry span and grouped by session. That way I can see what the model saw, how long it took and what it cost.</p></div>
+        <div class="card reveal"><span class="k">security</span><h3>Secure by default</h3><p>Row-level security on every table, timing-safe secret comparison, an origin allowlist, an SSRF block-list on the scraper, a non-root Docker image, and a server that refuses to start with an insecure default secret.</p></div>
+        <div class="card reveal"><span class="k">delivery</span><h3>CI, containers, deploy files</h3><p>GitHub Actions for lint, type-check and build. Multi-stage Dockerfiles. Ready-to-use configs for Vercel, Fly.io, Render and Docker Compose.</p></div>
+      </div>
+    </div>
+  </section>
+
+  <hr class="rule">
+
+  <!-- ── Stack ─────────────────────────────────────── -->
+  <section id="stack">
+    <div class="wrap">
+      <div class="section-head reveal">
+        <span class="eyebrow">04 — Stack</span>
+        <h2>Side-by-side stack</h2>
+      </div>
+      <div class="table-wrap reveal">
+        <table>
+          <thead><tr><th>Layer</th><th class="lensr-c">Lensr</th><th class="daily-c">DailyAI</th></tr></thead>
+          <tbody>
+            <tr><td>Frontend</td><td>React 19, TanStack Start/Router, Tailwind v4, shadcn/ui</td><td>React 19, Vite, React Router, installable PWA</td></tr>
+            <tr><td>API</td><td>TanStack server routes (SSE proxy) → FastAPI</td><td>FastAPI (serves both the API and the built SPA)</td></tr>
+            <tr><td>Orchestration</td><td>LangGraph router + 35 per-intent pipelines</td><td>LangGraph, 9-node linear news pipeline</td></tr>
+            <tr><td>Models</td><td>AWS Bedrock: Claude Sonnet 4.5, Haiku 4.5, Vision; Titan embeddings</td><td>OpenAI by default; fallback chain across Gemini, Groq, NVIDIA, HF, Ollama</td></tr>
+            <tr><td>Retrieval</td><td>Serper (Google SERP) + trafilatura scraper</td><td>Google News RSS (+ optional Serper News) + scraper</td></tr>
+            <tr><td>Data</td><td>Supabase Postgres, RLS, Storage, pgvector cache</td><td>SQLite (default) or Supabase</td></tr>
+            <tr><td>Auth</td><td>Supabase email + Google OAuth, role table</td><td>Anonymous profiles with a sync code, so no account is needed</td></tr>
+            <tr><td>Delivery</td><td>SSE stream to the browser</td><td>Web, email (Mailgun daily edition), web push</td></tr>
+            <tr><td>Hosting</td><td>Vercel (web) + Docker on Fly.io / Render</td><td>Docker / Render / Heroku buildpack</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <hr class="rule">
+
+  <!-- ── About ─────────────────────────────────────── -->
+  <section id="about">
+    <div class="wrap two-col">
+      <div class="reveal">
+        <span class="eyebrow">05 — About</span>
+        <h2 style="margin-bottom:18px">Hi, I'm Shivang.</h2>
+        <div class="prose">
+          <p>I'm an AI full-stack engineer with 5+ years of experience shipping production software: Python/FastAPI backends, React/TypeScript frontends, and the DevOps work that keeps them running.</p>
+          <p>My focus now is applied LLM systems: retrieval, multi-agent orchestration, evaluation and cost control. I hold an M.Sc. in Natural Language Processing from the University of Trier. My thesis compared NLP models for tracking how AI/ML skill requirements change in the German job market.</p>
+          <p>Lensr and DailyAI are where I test those ideas with real users.</p>
+        </div>
+        <div class="btn-row">
+          <a class="btn primary" href="https://www.linkedin.com/in/shivang-sinha-92755012b" target="_blank" rel="noopener">LinkedIn ↗</a>
+          <a class="btn" href="https://github.com/shivang-7135" target="_blank" rel="noopener">GitHub ↗</a>
+          <a class="btn" href="mailto:shivangsinha2@gmail.com">Email</a>
+        </div>
+      </div>
+      <div class="reveal">
+        <span class="eyebrow">Where I've worked</span>
+        <ul class="timeline">
+          <li><b>Carl Zeiss</b><span>Built an LLM-powered Microscopy Copilot on Azure.</span></li>
+          <li><b>University of Trier</b><span>M.Sc. Natural Language Processing (thesis completed).</span></li>
+          <li><b>Barclays</b><span>High-reliability transactional systems at 99.9% uptime.</span></li>
+          <li><b>Hexagon</b><span>Industrial platforms serving 500+ users.</span></li>
+        </ul>
+      </div>
+    </div>
+  </section>
+</main>
+
+<footer class="site-footer">
+  <div class="wrap">
+    <span>© <span data-year></span> Shivang Sinha · shivangsinha.tech</span>
+    <nav aria-label="Footer">
+      <a href="lensr.html">Lensr deep dive</a>
+      <a href="dailyai.html">DailyAI deep dive</a>
+      <a href="https://lensr.studio" target="_blank" rel="noopener">lensr.studio ↗</a>
+      <a href="https://dailyai.site" target="_blank" rel="noopener">dailyai.site ↗</a>
+    </nav>
+  </div>
+</footer>
+
+<script src="assets/main.js" defer></script>
+</body>
+</html>

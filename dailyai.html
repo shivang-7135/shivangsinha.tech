@@ -1,0 +1,418 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>DailyAI Deep Dive — Shivang Sinha</title>
+  <meta name="description" content="How DailyAI works: a scheduled LangGraph pipeline that collects, de-duplicates, curates, trust-scores and ranks AI news once, then serves it to every reader with no per-view LLM cost.">
+  <meta property="og:title" content="How DailyAI works">
+  <meta property="og:description" content="Summarise once, store once, serve instantly: a cost-aware AI news pipeline.">
+  <meta property="og:url" content="https://shivangsinha.tech/dailyai.html">
+  <link rel="canonical" href="https://shivangsinha.tech/dailyai.html">
+  <link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,500;0,9..144,600;1,9..144,400&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="assets/styles.css">
+</head>
+<body>
+
+<header class="site-header">
+  <div class="wrap">
+    <a class="brand" href="./"><span class="brand-mark">S</span>Shivang Sinha <small>/ tech</small></a>
+    <nav class="nav" aria-label="Main">
+      <a href="./#products" class="hide-sm">Products</a>
+      <a href="lensr.html">Lensr</a>
+      <a href="dailyai.html" aria-current="page">DailyAI</a>
+      <a href="./#about" class="hide-sm">About</a>
+      <button class="theme-btn" type="button"></button>
+    </nav>
+  </div>
+</header>
+
+<main>
+  <!-- ── Hero ─────────────────────────────────────── -->
+  <div class="p-hero daily">
+    <div class="wrap">
+      <div class="crumbs"><a href="./">Home</a> / DailyAI</div>
+      <span class="eyebrow daily-c">Product deep dive · AI news</span>
+      <h1><span>DailyAI:</span> summarise once,<br>serve everyone.</h1>
+      <p class="lede" style="margin-top:22px">
+        AI news moves fast and is full of repeated headlines. DailyAI gathers the day's stories, drops the duplicates,
+        and uses an LLM to pick what matters and explain <em>why it matters</em>. It scores each source's
+        trustworthiness and groups related stories into threads, all ahead of time, so readers get instant pages that
+        cost nothing in model calls.
+      </p>
+      <div class="btn-row">
+        <a class="btn daily" href="https://dailyai.site" target="_blank" rel="noopener">Read it at dailyai.site ↗</a>
+        <a class="btn" href="#explorer">Follow a refresh →</a>
+        <a class="btn" href="https://github.com/shivang-7135/aiNews" target="_blank" rel="noopener">Source ↗</a>
+      </div>
+      <div class="kv">
+        <div><b>9</b><span>nodes in the LangGraph news pipeline</span></div>
+        <div><b>0</b><span>LLM calls when a reader opens the feed</span></div>
+        <div><b>3</b><span>summary modes: <code>rss</code>, <code>openai</code>, <code>full</code></span></div>
+        <div><b>11</b><span>AI topics, from LLMs and funding to safety</span></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── What & why ────────────────────────────────── -->
+  <section>
+    <div class="wrap two-col">
+      <div class="reveal">
+        <span class="eyebrow">The problem</span>
+        <h2 style="margin-bottom:16px">Too many headlines, too little signal, and an LLM bill that grows with every reader.</h2>
+        <div class="prose">
+          <p>A single model launch can generate forty near-identical headlines. Readers want a short, trustworthy digest with the "so what?" spelled out.</p>
+          <p>The obvious build, calling an LLM whenever someone opens the page, gets expensive quickly and makes every page load slow. DailyAI moves all of the intelligence into a <strong>scheduled batch job</strong>, and the reader-facing app only reads from a database.</p>
+        </div>
+      </div>
+      <div class="reveal" style="--c:var(--daily);--soft:var(--daily-soft)">
+        <span class="eyebrow">Topics tracked</span>
+        <div class="pill-cloud" style="margin-bottom:22px">
+          <span class="card-owner">LLMs</span><span class="card-owner">Big Tech</span><span class="card-owner">Startups</span><span class="card-owner">Research</span><span class="card-owner">Funding</span><span class="card-owner">Regulation</span><span class="card-owner">Open Source</span><span class="card-owner">AI Safety</span><span class="card-owner">Robotics</span><span class="card-owner">Healthcare</span><span class="card-owner">Autonomous</span>
+        </div>
+        <span class="eyebrow">Regions &amp; languages</span>
+        <div class="pill-cloud" style="margin-bottom:22px">
+          <span>Global</span><span>US</span><span>UK</span><span>Germany</span><span>India</span><span>UI: English · Deutsch</span>
+        </div>
+        <div class="callout" style="--c:var(--daily)">
+          <b>What a reader sees</b>
+          <p>News cards with a 60–80-word summary, a one-line <em>why it matters</em>, a topic, a sentiment tag (bullish, bearish or neutral), a source trust tier and a story-thread label. Tapping a card opens a longer brief, which is generated once and then cached.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <hr class="rule">
+
+  <!-- ── Architecture ──────────────────────────────── -->
+  <section id="architecture">
+    <div class="wrap">
+      <div class="section-head reveal">
+        <span class="eyebrow">01 — Architecture</span>
+        <h2>A batch job on one side, a fast reader on the other</h2>
+        <p>The diagram splits into two halves. The top half runs on a schedule: news sources feed into a LangGraph pipeline that writes finished cards to storage. The bottom half runs when a reader visits: FastAPI reads those cards and serves them to the web app, email and push. No arrow connects a reader's request to the LLM.</p>
+      </div>
+      <p class="scroll-hint">← swipe to see the whole diagram →</p>
+      <div class="diagram reveal" style="--c:var(--daily)">
+        <svg viewBox="0 0 1000 560" role="img" aria-labelledby="daily-arch-t">
+          <title id="daily-arch-t">DailyAI architecture: a scheduler triggers a nine-node LangGraph pipeline that reads news sources, calls an LLM provider chain during curation, and writes to storage; FastAPI reads storage to serve the reader app, email edition and push notifications.</title>
+          <defs>
+            <marker id="da" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" class="ah"/></marker>
+            <marker id="dac" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" class="ah c"/></marker>
+          </defs>
+
+          <!-- Sources + scheduler -->
+          <rect class="box" x="20" y="20" width="200" height="64" rx="12"/>
+          <text class="t" x="38" y="47">Google News RSS</text>
+          <text class="s" x="38" y="68">per country + language</text>
+          <rect class="box" x="240" y="20" width="200" height="64" rx="12"/>
+          <text class="t" x="258" y="47">Serper News</text>
+          <text class="s" x="258" y="68">optional discovery</text>
+          <rect class="box hl" x="740" y="20" width="240" height="64" rx="12"/>
+          <text class="t" x="758" y="47">APScheduler</text>
+          <text class="s" x="758" y="68">every 30 min · edition 08:00 UTC</text>
+
+          <path class="edge c flow" d="M76 84 V166" marker-end="url(#dac)"/>
+          <path class="edge c" d="M340 84 V120 H100 V166" marker-end="url(#dac)"/>
+          <path class="edge c dash" d="M860 84 V128" marker-end="url(#dac)"/>
+          <text class="m" x="870" y="114">trigger</text>
+
+          <!-- Pipeline zone -->
+          <rect class="zone" x="16" y="132" width="968" height="130" rx="14"/>
+          <text class="zl" x="30" y="252">LangGraph pipeline · runs on refresh, never on page view</text>
+
+          <g>
+            <rect class="box" x="28"  y="170" width="96" height="52" rx="9"/><text class="m" x="76"  y="200" text-anchor="middle">collect</text>
+            <rect class="box" x="134" y="170" width="96" height="52" rx="9"/><text class="m" x="182" y="200" text-anchor="middle">dedupe</text>
+            <rect class="box" x="240" y="170" width="96" height="52" rx="9"/><text class="m" x="288" y="200" text-anchor="middle">scrape</text>
+            <rect class="box hl" x="346" y="170" width="96" height="52" rx="9"/><text class="m" x="394" y="200" text-anchor="middle" style="fill:var(--daily);font-weight:500">curate ✦</text>
+            <rect class="box" x="452" y="170" width="96" height="52" rx="9"/><text class="m" x="500" y="200" text-anchor="middle">trust</text>
+            <rect class="box" x="558" y="170" width="96" height="52" rx="9"/><text class="m" x="606" y="200" text-anchor="middle">sentiment</text>
+            <rect class="box" x="664" y="170" width="96" height="52" rx="9"/><text class="m" x="712" y="200" text-anchor="middle">thread</text>
+            <rect class="box" x="770" y="170" width="96" height="52" rx="9"/><text class="m" x="818" y="200" text-anchor="middle">personalize</text>
+            <rect class="box" x="876" y="170" width="96" height="52" rx="9"/><text class="m" x="924" y="200" text-anchor="middle">format</text>
+          </g>
+          <g class="edge">
+            <path class="edge" d="M124 196 H132"/><path class="edge" d="M230 196 H238"/><path class="edge" d="M336 196 H344"/>
+            <path class="edge" d="M442 196 H450"/><path class="edge" d="M548 196 H556"/><path class="edge" d="M654 196 H662"/>
+            <path class="edge" d="M760 196 H768"/><path class="edge" d="M866 196 H874"/>
+          </g>
+
+          <!-- LLM chain -->
+          <path class="edge c dash" d="M394 222 V298" marker-end="url(#dac)" marker-start="url(#dac)"/>
+          <rect class="box" x="290" y="300" width="220" height="72" rx="12"/>
+          <text class="t" x="308" y="328">LLM provider chain</text>
+          <text class="m" x="308" y="352">OpenAI → Gemini → Groq → …</text>
+
+          <!-- Storage -->
+          <path class="edge c flow" d="M924 222 V336 H764" marker-end="url(#dac)"/>
+          <text class="m" x="800" y="328">save cards</text>
+          <rect class="box hl" x="560" y="300" width="200" height="72" rx="12"/>
+          <text class="t" x="578" y="328">SQLite / Supabase</text>
+          <text class="m" x="578" y="352">cards · briefs · profiles</text>
+
+          <!-- Serving half -->
+          <line x1="16" y1="400" x2="984" y2="400" stroke="var(--line-strong)" stroke-dasharray="2 6"/>
+          <text class="zl" x="30" y="422">serving path · reads only</text>
+
+          <path class="edge c" d="M660 372 V446" marker-end="url(#dac)"/>
+          <rect class="box" x="560" y="450" width="200" height="80" rx="12"/>
+          <text class="t" x="578" y="478">FastAPI</text>
+          <text class="m" x="578" y="500">/api/articles</text>
+          <text class="m" x="578" y="518">/api/v1/feed · /trending</text>
+
+          <path class="edge c flow" d="M760 490 H806" marker-end="url(#dac)"/>
+          <rect class="box" x="810" y="450" width="170" height="80" rx="12"/>
+          <text class="t" x="828" y="478">Reader</text>
+          <text class="s" x="828" y="500">React PWA</text>
+          <text class="s" x="828" y="518">EN · DE</text>
+
+          <path class="edge" d="M560 490 H514" marker-end="url(#da)"/>
+          <rect class="box" x="290" y="450" width="220" height="80" rx="12"/>
+          <text class="t" x="308" y="478">Morning Edition</text>
+          <text class="s" x="308" y="500">Mailgun email</text>
+          <text class="s" x="308" y="518">web push (VAPID)</text>
+
+          <rect class="box sunk" x="20" y="450" width="250" height="80" rx="12"/>
+          <text class="t" x="38" y="478">Arize Phoenix</text>
+          <text class="s" x="38" y="500">LLM runs + output_quality</text>
+          <text class="s" x="38" y="518">(optional)</text>
+        </svg>
+      </div>
+      <p class="diagram-caption">✦ marks the only node that calls a model in the default <code>openai</code> mode. Everything below the dotted line is database reads only.</p>
+    </div>
+  </section>
+
+  <hr class="rule">
+
+  <!-- ── Explorer ──────────────────────────────────── -->
+  <section id="explorer">
+    <div class="wrap">
+      <div class="section-head reveal">
+        <span class="eyebrow">02 — Data flow</span>
+        <h2>Follow one refresh cycle, node by node</h2>
+        <p>Each LangGraph node reads one key from the shared state and writes the next one (<code>raw_articles → deduplicated → curated → trust_scored → …</code>). Use the <strong>summary mode</strong> toggle to see how the same graph behaves at different budgets.</p>
+      </div>
+      <div class="explorer daily reveal" data-pipeline="dailyai"></div>
+    </div>
+  </section>
+
+  <hr class="rule">
+
+  <!-- ── Cost calculator ───────────────────────────── -->
+  <section id="cost">
+    <div class="wrap">
+      <div class="section-head reveal">
+        <span class="eyebrow">03 — Why it's cheap</span>
+        <h2>Model calls per day, per-view vs summarise-once</h2>
+        <p>Move the sliders. A per-view design pays for a model call on every page open. DailyAI pays once per feed per refresh, however many people read it.</p>
+      </div>
+      <div class="calc reveal" id="cost-calc">
+        <div class="calc-controls">
+          <div><label for="readers">Daily readers <output id="readers-o"></output></label><input type="range" id="readers" min="10" max="20000" step="10" value="1000"></div>
+          <div><label for="views">Feed views per reader per day <output id="views-o"></output></label><input type="range" id="views" min="1" max="10" value="3"></div>
+          <div><label for="interval">Refresh interval <output id="interval-o"></output></label><input type="range" id="interval" min="15" max="240" step="15" value="30"></div>
+          <div><label for="feeds">Active feeds (region × language) <output id="feeds-o"></output></label><input type="range" id="feeds" min="1" max="10" value="5"></div>
+        </div>
+        <div class="bars">
+          <div class="bar-row"><span class="lbl">Per-view LLM<small>summarise on every page open</small></span><div class="bar-track"><i id="bar-view" style="background:var(--ink-3)"></i></div><span class="val" id="val-view"></span></div>
+          <div class="bar-row"><span class="lbl daily-c">DailyAI · <code>openai</code><small>curate once per feed per refresh</small></span><div class="bar-track"><i id="bar-refresh" style="background:var(--daily)"></i></div><span class="val" id="val-refresh"></span></div>
+          <div class="bar-row"><span class="lbl">DailyAI · <code>rss</code><small>feed summaries + rule-based tags</small></span><div class="bar-track"><i style="width:0"></i></div><span class="val" id="val-rss"></span></div>
+        </div>
+        <p style="margin:22px 0 0" id="calc-verdict"></p>
+        <p class="diagram-caption" style="margin-top:6px">Simplified model: one curation run per feed per refresh. In practice curation runs in bounded parallel chunks (<code>CURATOR_CHUNK_SIZE</code>), so the real number is a small multiple of this, and it still doesn't grow with readers.</p>
+      </div>
+    </div>
+  </section>
+
+  <hr class="rule">
+
+  <!-- ── Beyond the feed ───────────────────────────── -->
+  <section id="features">
+    <div class="wrap">
+      <div class="section-head reveal">
+        <span class="eyebrow">04 — Beyond the feed</span>
+        <h2>Built as a product, not a demo</h2>
+      </div>
+      <div class="grid-3">
+        <div class="card reveal"><span class="k">services/edition.py</span><h3>Morning Edition</h3><p>A shared daily magazine issue built at 08:00 UTC with a transparent list of sources. It is emailed through Mailgun and can be previewed at <code>/edition/YYYY-MM-DD</code>.</p></div>
+        <div class="card reveal"><span class="k">services/profiles.py</span><h3>Accounts without sign-up</h3><p>Anonymous profiles identified by a <em>sync code</em>. Preferences, saved stories and reading signals move between devices without an email address or password.</p></div>
+        <div class="card reveal"><span class="k">pages/Quiz · Leaderboard</span><h3>Learning loop</h3><p>Streaks, a quiz, a knowledge page and a leaderboard turn passive scrolling into a habit of actually understanding the AI news.</p></div>
+        <div class="card reveal"><span class="k">/api/v1/*</span><h3>Public developer API</h3><p>Read-only endpoints for the feed, categories and trending story threads, documented at <code>/api-docs</code>, so other apps can build on the curated data.</p></div>
+        <div class="card reveal"><span class="k">observability.py</span><h3>Quality guardrail</h3><p>Every LLM run gets a deterministic <code>output_quality</code> score (non-empty, sensible length, complete sentences, no prompt leakage) without an extra model call.</p></div>
+        <div class="card reveal"><span class="k">templates/ · i18n</span><h3>Ready for Germany</h3><p>Impressum, Datenschutz and terms pages, plus English and German UI strings served from the backend. It is also an installable PWA with a service worker and push notifications.</p></div>
+      </div>
+    </div>
+  </section>
+
+  <hr class="rule">
+
+  <!-- ── Glossary ──────────────────────────────────── -->
+  <section id="learn">
+    <div class="wrap">
+      <div class="section-head reveal">
+        <span class="eyebrow">05 — Learn the concepts</span>
+        <h2>Glossary for the curious</h2>
+      </div>
+      <div class="glossary reveal">
+        <details><summary>RSS <span class="where">graph/nodes/collector.py</span></summary><div class="body">Really Simple Syndication is an XML format that news sites publish so machines can read their latest headlines. DailyAI builds Google News RSS search URLs per region and language, then strips the HTML out of each item. It is free, fast and needs no API key, which makes it a good base layer for a budget product.</div></details>
+        <details><summary>LangGraph StateGraph <span class="where">graph/pipeline.py</span></summary><div class="body">A LangGraph pipeline is a set of <em>nodes</em> (async functions) joined by <em>edges</em>, all sharing a typed <em>state</em> dictionary. Each node here reads one key and writes the next, and records its own timing in <code>node_timings</code>. That lets you swap, reorder or test nodes on their own and see exactly where time goes.</div></details>
+        <details><summary>Near-duplicate detection <span class="where">graph/nodes/deduplicator.py</span></summary><div class="body">"OpenAI launches X - Reuters" and "OpenAI Launches X | TechCrunch" are the same story. Before comparing, titles are lower-cased, stripped of publisher suffixes and punctuation, and whitespace is collapsed. It is cheap string normalisation, but it removes most repeats before any expensive step runs.</div></details>
+        <details><summary>Provider fallback chain <span class="where">llm/provider.py</span></summary><div class="body">Rather than relying on a single LLM vendor, DailyAI builds an ordered list of providers (OpenAI, then Gemini, Groq, NVIDIA, Hugging Face, ArliAI and Ollama) and moves to the next one when a call fails or is rate-limited. If every provider fails, it uses deterministic RSS summaries, so the feed always has content.</div></details>
+        <details><summary>Source trust tiers <span class="where">graph/nodes/trust.py</span></summary><div class="body">A curated registry puts outlets into high (Reuters, AP, FT, Bloomberg…), medium or low tiers, worth 2, 1 or 0 points. The score is shown on the card and feeds into ranking. It is a transparent rule a reader can understand, not a black-box score.</div></details>
+        <details><summary>Ranking formula <span class="where">graph/nodes/personalizer.py</span></summary><div class="body">By default each story is scored as <code>importance × 10 + trust × 3 + recency</code>, where recency is +2 if the story is under 8 h old and +1 if under 24 h. When a profile has reading signals, preferred topics and categories raise that reader's score for matching stories.</div></details>
+        <details><summary>Story threading <span class="where">graph/nodes/threader.py</span></summary><div class="body">During curation the LLM gives each story a short thread label (for example "EU AI Act rollout"). The threader counts how many stories share each label, which powers the "trending" view and shows readers when a single card is part of a larger developing story.</div></details>
+      </div>
+    </div>
+  </section>
+
+  <section style="padding-top:0">
+    <div class="wrap">
+      <a class="next-card reveal" href="lensr.html">
+        <span><small>Next deep dive</small><strong>Lensr: answers shaped like your question →</strong></span>
+      </a>
+    </div>
+  </section>
+</main>
+
+<footer class="site-footer">
+  <div class="wrap">
+    <span>© <span data-year></span> Shivang Sinha · shivangsinha.tech</span>
+    <nav aria-label="Footer">
+      <a href="./">Home</a>
+      <a href="lensr.html">Lensr deep dive</a>
+      <a href="https://dailyai.site" target="_blank" rel="noopener">dailyai.site ↗</a>
+      <a href="https://github.com/shivang-7135" target="_blank" rel="noopener">GitHub ↗</a>
+    </nav>
+  </div>
+</footer>
+
+<script>
+window.PIPELINES = {
+  dailyai: {
+    modeLabel: "Summary mode",
+    modes: [{ id: "openai", label: "openai" }, { id: "rss", label: "rss" }, { id: "full", label: "full" }],
+    stages: [
+      {
+        title: "Scheduler fires", who: "cron",
+        tags: ["APScheduler", "services/scheduler.py"],
+        what: "Every 30 minutes (<code>HOURLY_REFRESH_INTERVAL_MINUTES</code>), the scheduler refreshes every active region and language combination. Separate jobs build the daily Morning Edition and sync to Supabase. On startup, a prefetch fills the cache so the first visitor never sees an empty feed.",
+        why: "Tying compute to a clock instead of to traffic makes cost predictable. You can work out the monthly LLM bill from the refresh interval alone.",
+        data: `run_pipeline(
+  country_code = "GLOBAL",
+  country_name = "Global / Worldwide",
+  language     = "en",
+)`
+      },
+      {
+        title: "Collect", who: "rss",
+        tags: ["collector.py", "Google News RSS"],
+        what: "Builds Google News RSS queries for the region and language, fetches them with a timeout, caps the items per feed, and cleans the HTML tags and entities out of titles and descriptions. The Morning Edition can also pull from Serper News.",
+        why: "RSS is free and reliable, so the product can run at zero API cost and paid services become optional extras.",
+        data: `// state.raw_articles  (~100 items)
+[{"title": "OpenAI releases new reasoning model - Reuters",
+  "source": "Reuters",
+  "link": "https://news.google.com/rss/articles/...",
+  "published": "2026-09-27T06:12:00Z",
+  "description": "OpenAI on Friday released..."}]`
+      },
+      {
+        title: "Deduplicate", who: "rules",
+        tags: ["deduplicator.py", "no LLM"],
+        what: "Normalises each headline (lower-case, strip suffixes like \" - Reuters\" or \"| The Verge\", remove punctuation, collapse spaces) and keeps the first story for each normalised key.",
+        why: "Duplicates are removed before the expensive step, so the LLM never pays to read the same story five times.",
+        data: `"OpenAI releases new reasoning model - Reuters"
+  → "openai releases new reasoning model"
+
+// state.deduplicated  (~100 → ~60 items)`
+      },
+      {
+        title: "Scrape full text", who: "http",
+        tags: ["scraper.py", "DISABLE_SCRAPER"],
+        skipIn: ["rss", "openai"],
+        what: "Fetches the article pages so curation can work from the full story rather than a one-line teaser.",
+        modeNote: { full: "Enabled. Richer summaries, at the cost of slower refreshes and more tokens." },
+        why: "Most of the value comes from the headline and description. Full text is kept as an opt-in because it multiplies input tokens.",
+        data: `// article["content"] = "...full cleaned article text..."`
+      },
+      {
+        title: "Curate", who: "llm ✦",
+        tags: ["curator.py", "llm/prompts.py", "chunked + parallel"],
+        what: "The core of the pipeline. Articles are split into bounded chunks and curated in parallel. The LLM drops noise, writes a short journalistic summary and a one-line <em>why it matters</em>, and assigns a topic, an importance score from 1 to 10, a sentiment and a story-thread label. The JSON output is parsed defensively, and any tile still containing placeholder text from the prompt is rejected.",
+        modeNote: {
+          openai: "One OpenAI pass per refresh. The results are stored, and every later read is free.",
+          rss: "No model call. Uses the feed's own summary with rule-based topic and sentiment tagging, so it costs zero tokens.",
+          full: "Curation plus extras: on-demand briefs, LLM personalisation, embeddings and brief pre-generation."
+        },
+        why: "Capping input articles and chunk size keeps each refresh's token spend bounded and predictable, even on a busy news day.",
+        data: `// state.curated
+{"title": "OpenAI ships a faster reasoning model",
+ "summary": "OpenAI released ... (60–80 words)",
+ "why_it_matters": "Cheaper reasoning makes agent workflows viable for small teams.",
+ "category": "product", "topic": "llms",
+ "importance": 8, "sentiment": "bullish",
+ "story_thread": "OpenAI model releases",
+ "source": "Reuters", "link": "https://...", "published": "2026-09-27T06:12:00Z"}`
+      },
+      {
+        title: "Score trust", who: "rules",
+        tags: ["trust.py", "source registry"],
+        what: "Matches each source against curated lists: <strong>high</strong> (Reuters, AP, FT, Bloomberg, NYT…) = 2, <strong>medium</strong> = 1, otherwise <strong>low</strong> = 0. Unknown outlets whose names look like newspapers (\"times\", \"post\", \"journal\") get medium.",
+        why: "Readers can see the trust tier on every card, and it is an explainable ranking signal that needs no model call.",
+        data: `{"...": "...", "source_trust": "high", "_trust_score": 2}`
+      },
+      {
+        title: "Tag sentiment", who: "rules",
+        tags: ["sentiment.py"],
+        what: "Checks the sentiment the curator assigned and normalises anything outside <code>bullish · bearish · neutral</code> to neutral.",
+        why: "Never trust free-form LLM output in your UI. A strict set of allowed values keeps the colour-coded badges consistent.",
+        data: `"Bullish " → "bullish"
+"positive" → "neutral"   // not in the allowed set`
+      },
+      {
+        title: "Thread stories", who: "rules",
+        tags: ["threader.py"],
+        what: "Groups stories by their <code>story_thread</code> label and counts how many belong to each thread.",
+        why: "A thread count of 6 tells readers a story is still developing, and drives the Trending page and the <code>/api/v1/trending</code> endpoint.",
+        data: `{"story_thread": "openai model releases", "thread_count": 6}`
+      },
+      {
+        title: "Personalize & rank", who: "rules",
+        tags: ["personalizer.py", "profiles"],
+        what: "Default ranking is <code>importance×10 + trust×3 + recency</code>, with recency +2 under 8 h and +1 under 24 h. When a reader's profile has interaction signals, their preferred topics and categories get a boost.",
+        modeNote: { full: "An optional LLM personaliser can also write a daily synthesis tailored to the reader's role." },
+        why: "A transparent formula is easy to debug and cheap to compute, and it holds up surprisingly well when signals are sparse.",
+        data: `score = 8*10 + 2*3 + 2 = 88   // fresh, trusted, important`
+      },
+      {
+        title: "Format & store", who: "db",
+        tags: ["formatter.py", "services/news.py", "SQLite · Supabase"],
+        what: "The formatter maps each tile to the UI contract (headline, summary, why it matters, trust, sentiment, thread and a clamped importance). The news service then writes the finished feed to SQLite (default) or Supabase and logs per-node timings.",
+        why: "This is where the cost is paid once. From here on, every reader gets exactly the same stored result.",
+        data: `// final_feed[i]
+{"id": "GLOBAL-en-0", "headline": "OpenAI ships a faster reasoning model",
+ "why_it_matters": "...", "importance": 8, "topic": "LLMs",
+ "source_name": "Reuters", "source_trust": "high",
+ "sentiment": "bullish", "story_thread": "OpenAI model releases", "thread_count": 6}
+
+[Pipeline] Completed in 14.2s | collector:2.1s → deduplicator:0.0s →
+  scraper:0.0s → curator:11.4s → trust:0.0s → ...   // illustrative`
+      },
+      {
+        title: "Serve readers", who: "fastapi",
+        tags: ["GET /api/articles", "React PWA", "no LLM"],
+        what: "When someone opens dailyai.site, FastAPI returns paginated cards straight from the database, filtered by topic, region and language. Opening a card's brief streams it once, then caches it per article and language for everyone after.",
+        why: "Page views are pure database reads, so the site stays fast and cheap however many people visit.",
+        data: `GET /api/articles?topic=llms&country=GLOBAL&lang=en&page=1
+→ 200 OK  (served from DB, 0 tokens)`
+      }
+    ]
+  }
+};
+</script>
+<script src="assets/main.js" defer></script>
+</body>
+</html>

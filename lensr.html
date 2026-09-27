@@ -1,0 +1,436 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Lensr Deep Dive — Shivang Sinha</title>
+  <meta name="description" content="How Lensr works: intent classification, 35 specialised agents, parallel web search, reflection, structured synthesis and live SSE streaming, explained step by step.">
+  <meta property="og:title" content="How Lensr works">
+  <meta property="og:description" content="Follow one search query through Lensr's multi-agent pipeline.">
+  <meta property="og:url" content="https://shivangsinha.tech/lensr.html">
+  <link rel="canonical" href="https://shivangsinha.tech/lensr.html">
+  <link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,500;0,9..144,600;1,9..144,400&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="assets/styles.css">
+</head>
+<body>
+
+<header class="site-header">
+  <div class="wrap">
+    <a class="brand" href="./"><span class="brand-mark">S</span>Shivang Sinha <small>/ tech</small></a>
+    <nav class="nav" aria-label="Main">
+      <a href="./#products" class="hide-sm">Products</a>
+      <a href="lensr.html" aria-current="page">Lensr</a>
+      <a href="dailyai.html">DailyAI</a>
+      <a href="./#about" class="hide-sm">About</a>
+      <button class="theme-btn" type="button"></button>
+    </nav>
+  </div>
+</header>
+
+<main>
+  <!-- ── Hero ─────────────────────────────────────── -->
+  <div class="p-hero lensr">
+    <div class="wrap">
+      <div class="crumbs"><a href="./">Home</a> / Lensr</div>
+      <span class="eyebrow lensr-c">Product deep dive · AI search</span>
+      <h1><span>Lensr:</span> answers shaped<br>like your question.</h1>
+      <p class="lede" style="margin-top:22px">
+        A search for "best headphones under $300" should return a comparison of picks with prices, and a search
+        for "3 days in Lisbon" should return an itinerary. Lensr works out which kind of question you asked,
+        researches the live web with an agent built for it, and streams back a structured card with its sources.
+      </p>
+      <div class="btn-row">
+        <a class="btn lensr" href="https://lensr.studio" target="_blank" rel="noopener">Try it at lensr.studio ↗</a>
+        <a class="btn" href="#explorer">Follow a query →</a>
+        <a class="btn" href="https://github.com/shivang-7135/lensr" target="_blank" rel="noopener">Source ↗</a>
+      </div>
+      <div class="kv">
+        <div><b>35</b><span>intent-specific agents sharing one adaptive pipeline</span></div>
+        <div><b>10</b><span>result cards: shopping, trip, recipes, movies…</span></div>
+        <div><b>2</b><span>speed modes: Fast for everyone, Deep with sign-in</span></div>
+        <div><b>0.88</b><span>cosine threshold for a semantic-cache hit (24h TTL)</span></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── What & why ────────────────────────────────── -->
+  <section>
+    <div class="wrap two-col">
+      <div class="reveal">
+        <span class="eyebrow">The problem</span>
+        <h2 style="margin-bottom:16px">Search returns links. People want answers in a useful shape.</h2>
+        <div class="prose">
+          <p>Chat assistants give you a wall of prose, and search engines give you ten links you have to read yourself. Most everyday questions have a natural answer shape. Shopping needs picks and a comparison table. A trip needs a day-by-day plan. A recipe needs ingredients and steps.</p>
+          <p>Lensr's core bet is that <strong>intent should decide both the research strategy and the UI.</strong> The shopping agent searches differently from the legal agent, and its answer renders in a different component.</p>
+        </div>
+      </div>
+      <div class="reveal" style="--c:var(--lensr);--soft:var(--lensr-soft)">
+        <span class="eyebrow">The 35 intents <span class="muted">(highlighted ones have their own card)</span></span>
+        <div class="pill-cloud" style="margin-bottom:22px">
+          <span class="card-owner">shopping</span><span class="card-owner">price_history</span><span class="card-owner">trip</span><span class="card-owner">movies</span><span class="card-owner">recipes</span><span class="card-owner">books</span><span class="card-owner">places</span><span class="card-owner">events</span><span class="card-owner">insta</span><span class="card-owner">general</span>
+          <span>tech</span><span>health</span><span>finance</span><span>news</span><span>sports</span><span>howto</span><span>learning</span><span>jobs</span><span>local</span><span>comparison</span><span>gift</span><span>legal</span><span>gaming</span><span>diy</span><span>fitness</span><span>pets</span><span>music</span><span>productivity</span><span>weather</span><span>real_estate</span><span>automotive</span><span>food</span><span>fashion</span><span>parenting</span><span>dating</span>
+        </div>
+        <div class="callout" style="--c:var(--lensr)">
+          <b>One pipeline, many agents</b>
+          <p>Each agent is a small file (about 25–40 lines) that declares its search angles, output schema and CTA rules. They all share one adaptive pipeline (<code>agents/_pipeline.py</code>), so adding an intent is mostly configuration rather than new code.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <hr class="rule">
+
+  <!-- ── Architecture ──────────────────────────────── -->
+  <section id="architecture">
+    <div class="wrap">
+      <div class="section-head reveal">
+        <span class="eyebrow">01 — Architecture</span>
+        <h2>Four services, one stream</h2>
+        <p>The browser never talks to the Python backend directly. A thin TanStack Start server on Vercel validates the request, attaches a shared secret and streams the backend's events back through to the browser. Supabase handles identity and data. The cache and the traces sit alongside the main request path.</p>
+      </div>
+      <p class="scroll-hint">← swipe to see the whole diagram →</p>
+      <div class="diagram reveal" style="--c:var(--lensr)">
+        <svg viewBox="0 0 1000 600" role="img" aria-labelledby="lensr-arch-t">
+          <title id="lensr-arch-t">Lensr architecture: Browser to Vercel proxy to FastAPI backend, which calls Bedrock, Serper and web pages; Supabase for auth and cache; Phoenix for traces.</title>
+          <defs>
+            <marker id="la" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" class="ah"/></marker>
+            <marker id="lac" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" class="ah c"/></marker>
+          </defs>
+
+          <!-- edges -->
+          <path class="edge c flow" d="M500 84 V146" marker-end="url(#lac)"/>
+          <text class="m" x="510" y="122">POST /api/search · SSE ⇅</text>
+          <path class="edge" d="M300 52 H145 V146" marker-end="url(#la)"/>
+          <text class="m" x="155" y="112">supabase-js: auth · RLS · storage</text>
+          <path class="edge c flow" d="M500 262 V316" marker-end="url(#lac)"/>
+          <text class="m" x="510" y="294">HTTPS + X-Backend-Secret</text>
+          <path class="edge c" d="M700 355 H756" marker-end="url(#lac)"/>
+          <path class="edge c" d="M700 445 H756" marker-end="url(#lac)"/>
+          <path class="edge c" d="M700 535 H756" marker-end="url(#lac)"/>
+          <path class="edge" d="M300 400 H145 V324" marker-end="url(#la)"/>
+          <text class="m" x="155" y="392">semantic cache</text>
+          <text class="m" x="155" y="418">(pgvector)</text>
+          <path class="edge dash" d="M300 520 H274" marker-end="url(#la)"/>
+
+          <!-- Browser -->
+          <rect class="box hl" x="300" y="20" width="400" height="64" rx="12"/>
+          <text class="t" x="320" y="47">Browser</text>
+          <text class="s" x="320" y="68">React 19 · TanStack Router · 10 result cards</text>
+
+          <!-- Supabase -->
+          <rect class="box" x="20" y="150" width="250" height="170" rx="12"/>
+          <text class="t" x="38" y="178">Supabase</text>
+          <text class="s" x="38" y="198">Postgres · Auth · Storage</text>
+          <text class="m" x="38" y="228">profiles · user_roles</text>
+          <text class="m" x="38" y="248">saved_searches · api_keys</text>
+          <text class="m" x="38" y="268">search_cache (vector 1024)</text>
+          <text class="m" x="38" y="296">RLS + has_role() everywhere</text>
+
+          <!-- Vercel -->
+          <rect class="box" x="360" y="150" width="280" height="112" rx="12"/>
+          <text class="t" x="378" y="178">TanStack Start · Vercel</text>
+          <text class="m" x="378" y="204">origin allowlist</text>
+          <text class="m" x="378" y="224">body ≤ 8 KB · query ≤ 2000</text>
+          <text class="m" x="378" y="244">stream proxy → backend</text>
+
+          <!-- Backend -->
+          <rect class="box hl" x="300" y="320" width="400" height="250" rx="12"/>
+          <text class="t" x="320" y="348">FastAPI + LangGraph backend</text>
+          <text class="s" x="320" y="368">POST /search → text/event-stream</text>
+          <rect class="box sunk" x="320" y="384" width="360" height="170" rx="8"/>
+          <text class="m" x="336" y="408">router_graph   classify intent (Haiku)</text>
+          <text class="m" x="336" y="432">35 agents      keywords → plan → search</text>
+          <text class="m" x="336" y="452">               → scrape → reflect → synth</text>
+          <text class="m" x="336" y="480">tools/         serper · scraper · cache</text>
+          <text class="m" x="336" y="504">_enrichment    chart / table after answer</text>
+          <text class="m" x="336" y="532">observability  OTel spans per step</text>
+
+          <!-- Externals -->
+          <rect class="box" x="760" y="320" width="220" height="70" rx="12"/>
+          <text class="t" x="778" y="348">AWS Bedrock</text>
+          <text class="s" x="778" y="370">Sonnet 4.5 · Haiku 4.5 · Titan</text>
+          <rect class="box" x="760" y="410" width="220" height="70" rx="12"/>
+          <text class="t" x="778" y="438">Serper.dev</text>
+          <text class="s" x="778" y="460">Google SERP as JSON</text>
+          <rect class="box" x="760" y="500" width="220" height="70" rx="12"/>
+          <text class="t" x="778" y="528">Web pages</text>
+          <text class="s" x="778" y="550">trafilatura · SSRF-guarded</text>
+
+          <!-- Phoenix -->
+          <rect class="box" x="20" y="470" width="250" height="100" rx="12"/>
+          <text class="t" x="38" y="498">Arize Phoenix</text>
+          <text class="s" x="38" y="518">traces grouped by session_id</text>
+          <text class="m" x="38" y="546">CHAIN · TOOL · LLM spans</text>
+        </svg>
+      </div>
+      <p class="diagram-caption">Solid coloured arrows show the request path. The dashed arrow shows telemetry. The backend is containerised (multi-stage, non-root) and ships with Fly.io and Render configs.</p>
+    </div>
+  </section>
+
+  <hr class="rule">
+
+  <!-- ── Explorer ──────────────────────────────────── -->
+  <section id="explorer">
+    <div class="wrap">
+      <div class="section-head reveal">
+        <span class="eyebrow">02 — Data flow</span>
+        <h2>Follow one query, step by step</h2>
+        <p>We'll trace <code>best noise cancelling headphones under $300</code> through the system. Click a stage, use the arrow keys, or press Play. Switch between <strong>Deep</strong> and <strong>Fast</strong> mode to see which steps drop out when speed matters more than depth.</p>
+      </div>
+      <div class="explorer lensr reveal" data-pipeline="lensr"></div>
+    </div>
+  </section>
+
+  <hr class="rule">
+
+  <!-- ── SSE replay ────────────────────────────────── -->
+  <section id="stream">
+    <div class="wrap">
+      <div class="section-head reveal">
+        <span class="eyebrow">03 — Streaming</span>
+        <h2>Why the wait doesn't feel like waiting</h2>
+        <p>A deep answer takes several seconds, but the UI updates from the first 100 ms because the backend <em>yields</em> an event at every step. Replay a (simulated) stream below: the event log on the left drives the interface on the right.</p>
+      </div>
+      <div class="replay reveal" id="sse-replay">
+        <div class="explorer-bar" style="--c:var(--lensr)">
+          <span class="label">text/event-stream</span>
+          <span class="spacer"></span>
+          <button type="button" class="ctrl" data-replay><svg viewBox="0 0 24 24" fill="currentColor"><path d="M7 5v14l12-7z"/></svg> Replay stream</button>
+        </div>
+        <div class="replay-grid">
+          <div class="replay-log" aria-live="polite"></div>
+          <div class="replay-ui">
+            <div class="mock">
+              <div class="q"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg>best noise cancelling headphones under $300</div>
+              <span class="badge">intent</span>
+              <div class="steps">
+                <div class="step" data-step="plan"><i></i>Planning research</div>
+                <div class="step" data-step="search"><i></i>Searching the web</div>
+                <div class="step" data-step="read"><i></i>Reading sources</div>
+                <div class="step" data-step="reflect"><i></i>Checking evidence</div>
+                <div class="step" data-step="write"><i></i>Writing answer</div>
+              </div>
+              <div class="answer"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <p class="diagram-caption">Timings and picks here are illustrative. The event names and their order come from the real backend (<code>agents/_pipeline.py</code>).</p>
+    </div>
+  </section>
+
+  <hr class="rule">
+
+  <!-- ── Decisions ─────────────────────────────────── -->
+  <section id="decisions">
+    <div class="wrap">
+      <div class="section-head reveal">
+        <span class="eyebrow">04 — Design decisions</span>
+        <h2>Trade-offs worth explaining</h2>
+      </div>
+      <div class="grid-3">
+        <div class="card reveal"><span class="k">latency</span><h3>Search before you know why</h3><p>A generic web search starts <em>at the same moment</em> as intent classification. By the time Haiku returns "shopping", seed results are already arriving, which removes a full round-trip from the critical path.</p></div>
+        <div class="card reveal"><span class="k">cost × quality</span><h3>Right model for the job</h3><p>Haiku handles routing and simple intents (weather, news, sports, general) plus all Fast-mode synthesis. Sonnet is used only for Deep-mode answers that need real reasoning, such as comparisons, trips and shopping.</p></div>
+        <div class="card reveal"><span class="k">robustness</span><h3>Never block on the LLM</h3><p>Classification has a 5 s timeout that falls back to <code>general</code>. Cache lookup has a 3 s budget. Cache writes run as fire-and-forget tasks, so a slow database never delays an answer.</p></div>
+        <div class="card reveal"><span class="k">ux</span><h3>Guaranteed CTAs and media</h3><p>LLMs sometimes forget to include links. The pipeline adds the right action anyway (Amazon, Maps, Booking.com, Keepa) and fills in images from Wikipedia or Open Graph tags.</p></div>
+        <div class="card reveal"><span class="k">progressive</span><h3>Enrichment after "final"</h3><p>Charts, tables and timelines are generated <em>after</em> the answer is delivered. If enrichment fails, the user already has a complete answer, so the extra visuals can never break the main result.</p></div>
+        <div class="card reveal"><span class="k">security</span><h3>Defence in depth</h3><p>RLS on every table, a separate <code>user_roles</code> table (so users can't promote themselves), a timing-safe secret check, a private-IP block-list on the scraper, and a server that refuses to start with the default secret.</p></div>
+      </div>
+    </div>
+  </section>
+
+  <hr class="rule">
+
+  <!-- ── Glossary ──────────────────────────────────── -->
+  <section id="learn">
+    <div class="wrap">
+      <div class="section-head reveal">
+        <span class="eyebrow">05 — Learn the concepts</span>
+        <h2>Glossary for the curious</h2>
+        <p>New to some of these terms? Each one is explained here in plain language, with a note on where it appears in Lensr.</p>
+      </div>
+      <div class="glossary reveal">
+        <details><summary>Server-Sent Events (SSE) <span class="where">browser ⇠ backend</span></summary><div class="body">A long-lived HTTP response with the content type <code>text/event-stream</code>. The server keeps writing small <code>data: {...}</code> messages as work progresses. It is simpler than WebSockets because it only flows one way (server to browser), which is all a progress stream needs, and it passes cleanly through Vercel's proxy.</div></details>
+        <details><summary>Intent classification <span class="where">router_graph.py</span></summary><div class="body">Deciding <em>what kind</em> of question this is before answering it. Lensr sends a compact prompt that lists all 35 intents and a few rules (for example "vs" → comparison, "how to" → howto) to a small, fast model, and asks for JSON only: <code>{"intent": "shopping"}</code>. Anything it can't parse becomes <code>general</code>.</div></details>
+        <details><summary>Semantic cache &amp; cosine similarity <span class="where">tools/cache.py</span></summary><div class="body">A normal cache matches exact strings. A semantic cache matches <em>meaning</em>. Each query is turned into a 1024-number vector (an "embedding") with Amazon Titan. Two queries whose vectors point in almost the same direction (cosine similarity ≥ 0.88) count as the same question, so "top ANC headphones below 300" can reuse the answer to "best noise cancelling headphones under $300".</div></details>
+        <details><summary>Reflection loop <span class="where">_pipeline.py · Deep mode</span></summary><div class="body">After the first round of research, the model is asked: <em>"Do I have enough evidence to answer well?"</em> If not, it writes follow-up queries and runs another round. Lensr caps this at one extra round (<code>MAX_LOOPS = 2</code>), which keeps most of the quality gain while bounding latency and cost.</div></details>
+        <details><summary>Structured output <span class="where">per-agent schemas</span></summary><div class="body">Instead of asking for prose, each agent asks the model to fill a JSON schema. The shopping agent, for example, uses <code>{tldr, picks[], comparison_table, detail_markdown}</code>. The frontend renders those fields with real components, which is why answers look like product UI rather than chat.</div></details>
+        <details><summary>SSRF protection <span class="where">tools/scraper.py</span></summary><div class="body">Server-Side Request Forgery happens when an attacker tricks your server into fetching an internal URL (such as a cloud metadata endpoint). Since Lensr fetches URLs that come from search results, the scraper blocks private ranges (10.x, 172.16–31.x, 192.168.x, 169.254.x) and localhost before any request goes out.</div></details>
+        <details><summary>Row-Level Security (RLS) <span class="where">supabase/migrations</span></summary><div class="body">Postgres rules that filter rows <em>inside the database</em> based on who is asking. Even if the frontend has a bug, a user can only read their own saved searches. A <code>SECURITY DEFINER</code> helper, <code>has_role()</code>, checks admin rights without the policy recursing into itself.</div></details>
+        <details><summary>Timing-safe comparison <span class="where">main.py · api routes</span></summary><div class="body">A normal <code>==</code> stops at the first mismatched character, so an attacker can guess a secret one character at a time by measuring response times. <code>hmac.compare_digest</code> and <code>crypto.timingSafeEqual</code> always take the same time, whatever the input.</div></details>
+      </div>
+    </div>
+  </section>
+
+  <section style="padding-top:0">
+    <div class="wrap">
+      <a class="next-card reveal" href="dailyai.html">
+        <span><small>Next deep dive</small><strong>DailyAI: summarise once, serve everyone →</strong></span>
+      </a>
+    </div>
+  </section>
+</main>
+
+<footer class="site-footer">
+  <div class="wrap">
+    <span>© <span data-year></span> Shivang Sinha · shivangsinha.tech</span>
+    <nav aria-label="Footer">
+      <a href="./">Home</a>
+      <a href="dailyai.html">DailyAI deep dive</a>
+      <a href="https://lensr.studio" target="_blank" rel="noopener">lensr.studio ↗</a>
+      <a href="https://github.com/shivang-7135" target="_blank" rel="noopener">GitHub ↗</a>
+    </nav>
+  </div>
+</footer>
+
+<script>
+window.PIPELINES = {
+  lensr: {
+    modeLabel: "Mode",
+    modes: [{ id: "deep", label: "Deep" }, { id: "fast", label: "Fast" }],
+    stages: [
+      {
+        title: "User submits a query", who: "browser",
+        tags: ["Browser", "routes/results.tsx"],
+        what: "The search bar posts the query, the chosen speed mode and a <code>session_id</code> (a UUID that stays stable per browser tab, so every search in the tab is grouped under one trace session). Deep mode requires a Google sign-in, while Fast mode is open to everyone.",
+        why: "Sending the <code>session_id</code> from the client means observability starts in the browser, so a whole browsing session can be replayed in Phoenix.",
+        data: `// POST /api/search
+{
+  "query": "best noise cancelling headphones under $300",
+  "fast_mode": false,
+  "session_id": "3f9c1a2e-8b1d-4c7a-9e21-5d0b6f7a1c44"
+}`
+      },
+      {
+        title: "Edge proxy validates", who: "vercel",
+        tags: ["TanStack Start", "Vercel", "api/search.ts"],
+        what: "A server route on Vercel checks the <code>Origin</code> header against an allowlist, rejects bodies over 8 KB and queries over 2000 characters, then opens a request to the Python backend with a secret header. It streams the response straight back without buffering it.",
+        why: "Keeping the backend URL and secret server-side means the browser never sees them. The proxy is also the one place where CORS and abuse limits are enforced.",
+        data: `// forwarded upstream
+POST https://backend/search
+X-Backend-Secret: ••••••••
+Accept: text/event-stream`
+      },
+      {
+        title: "Backend accepts & signals", who: "fastapi",
+        tags: ["FastAPI", "main.py", "router_graph.py"],
+        what: "FastAPI verifies the secret with <code>hmac.compare_digest</code>, validates the query and <em>immediately</em> yields a first event, before any model has been called.",
+        why: "Without that first event, the UI would sit on a spinner for the 2–5 s that classification takes. With it, the timeline animates straight away and the app feels responsive.",
+        data: `data: {"type": "stage", "stage": "plan"}`
+      },
+      {
+        title: "Semantic cache check", who: "pgvector",
+        tags: ["Supabase pgvector", "Titan Embeddings v2", "tools/cache.py"],
+        skipIn: ["deep"],
+        what: "The query is embedded into a 1024-dimensional vector and compared with recently answered queries. If one is at least 0.88 cosine-similar and under 24 h old, Lensr cancels all in-flight work and replays the cached answer.",
+        modeNote: { fast: "Cache lookups have a 3-second budget. A hit returns the full structured answer in well under a second." },
+        why: "Popular questions come up again and again in slightly different words. Matching on meaning rather than exact text turns many of them into near-instant, zero-LLM responses.",
+        data: `// cache hit → skip everything below
+{"type": "intent_detected", "intent": "shopping"}
+{"type": "cache_hit", "cached": true}
+{"type": "final", "structured": {...}, "cached": true}`
+      },
+      {
+        title: "Classify intent", who: "haiku",
+        tags: ["Bedrock · Claude Haiku 4.5", "5 s timeout"],
+        what: "A compact classification prompt asks the fast model to return exactly one of 35 intents as JSON. <strong>At the same time</strong>, a speculative Google search for the raw query is already running in the background.",
+        why: "Running classification and search in parallel hides the classification latency. If the model times out or returns something unknown, Lensr uses <code>general</code> instead of failing.",
+        data: `// model output
+{"intent": "shopping"}
+
+// SSE to browser
+{"type": "intent_detected", "intent": "shopping"}`
+      },
+      {
+        title: "Keywords & search plan", who: "llm",
+        tags: ["agents/shopping.py", "_pipeline.py"],
+        what: "The shopping agent turns the query into keywords plus a set of different search angles (reviews, price comparisons, recent roundups), all from one combined LLM call.",
+        modeNote: { fast: "No LLM planner. Queries come straight from the input and the seed search, saving a whole model round-trip." },
+        why: "Different angles surface different sources. Doing keywords and planning in <em>one</em> call instead of two saves about a second.",
+        data: `{"type": "keywords_extracted",
+ "keywords": ["noise cancelling", "headphones", "under $300", "ANC"]}
+{"type": "search_plan", "queries": [
+  "best ANC headphones under 300 2026 review",
+  "Sony vs Bose vs Sennheiser noise cancelling comparison",
+  "wireless headphones price drop deal"
+]}`
+      },
+      {
+        title: "Fan-out web search", who: "serper",
+        tags: ["Serper.dev", "asyncio.gather", "tools/serper.py"],
+        what: "Every planned query goes to Serper at the same time. Results are merged with the seed results, de-duplicated by URL and capped at 10 sources.",
+        why: "Parallel fan-out means total search time is roughly that of the <em>slowest</em> query, not the sum of all of them.",
+        data: `{"type": "tool_call", "tool": "google_search",
+ "input": "best ANC headphones under 300 2026 review"}
+{"type": "search_results", "count": 9,
+ "results": [{"title": "...", "url": "https://...", "snippet": "..."}]}`
+      },
+      {
+        title: "Scrape top pages", who: "scraper",
+        tags: ["trafilatura", "6 s timeout", "SSRF guard"],
+        what: "The most promising URLs are fetched and cleaned into readable text with trafilatura, which strips navigation, ads and boilerplate. Private and internal IP ranges are blocked before any request is made.",
+        modeNote: { fast: "Scraping is capped to the top 2 pages. Snippets carry most of the evidence." },
+        why: "Search snippets are too short for good comparisons. Full-page text gives the model real specs and prices. The per-page timeout stops one slow site from holding everything up.",
+        data: `{"type": "scrape_progress", "count": 4}
+// evidence[i] = {url, title, text: "...2,400 words of clean article text..."}`
+      },
+      {
+        title: "Reflect on evidence", who: "llm",
+        tags: ["Deep mode only", "MAX_LOOPS = 2"],
+        skipIn: ["fast"],
+        what: "The model reviews what it has collected and decides whether the evidence is sufficient. If it isn't (for example, no current prices), it writes follow-up queries and runs one more search-and-scrape round.",
+        why: "One reflection pass catches the most common gap (a missing angle) at the cost of a single extra round. Further loops add latency for little gain.",
+        data: `{"type": "reflection", "loop": 1, "done": false,
+ "missing": "current prices", "followup_queries": ["Sennheiser Momentum 4 current price"]}
+{"type": "stage", "stage": "search_loop_2"}`
+      },
+      {
+        title: "Synthesize structured answer", who: "sonnet",
+        tags: ["Bedrock · Claude Sonnet 4.5", "intent schema"],
+        what: "The model fills the shopping schema (picks, comparison table and a TL;DR) using only the gathered evidence and citing sources. Fields stream out as soon as they are ready, starting with the TL;DR.",
+        modeNote: { fast: "Synthesis uses Haiku with a larger token budget, trading a little nuance for speed." },
+        why: "Structured JSON instead of free text lets the frontend render real UI components, and makes answers comparable and cacheable.",
+        data: `{"type": "partial_structured", "field": "tldr", "value": "For most people..."}
+{"type": "final", "intent": "shopping",
+ "structured": {
+   "tldr": "...",
+   "picks": [{"name": "...", "price": "...", "pros": [...], "cons": [...], "cta": "https://amazon..."}],
+   "comparison_table": {...}
+ },
+ "sources": [{"title": "...", "url": "..."}]}`
+      },
+      {
+        title: "Render card, enrich, cache", who: "browser",
+        tags: ["ShoppingResult.tsx", "_enrichment.py", "cache_store"],
+        what: "The browser matches the intent to <code>ShoppingResult</code> and renders it. After <code>final</code>, the backend generates an optional visual (chart, table or timeline) that animates in underneath, and writes the answer to the semantic cache in the background.",
+        why: "Everything after <code>final</code> is optional, so a failure there can never break the answer the user already has.",
+        data: `{"type": "enrichment",
+ "artifact": {"kind": "chart", "title": "Price vs ANC rating", "series": [...]}}
+// background: cache_store(query, intent, structured, sources)`
+      }
+    ]
+  }
+};
+
+window.SSE_SCRIPT = [
+  { at: 60,   type: "stage",              step: "plan",    payload: { stage: "plan" } },
+  { at: 1500, type: "intent_detected",                     payload: { intent: "shopping" } },
+  { at: 2600, type: "keywords_extracted",                  payload: { keywords: ["noise cancelling", "headphones", "under $300"] } },
+  { at: 2700, type: "search_plan",                         payload: { queries: ["best ANC headphones under 300 review", "Sony vs Bose vs Sennheiser"] } },
+  { at: 2800, type: "tool_call",          step: "search",  payload: { tool: "google_search", input: "best ANC headphones under 300 review" } },
+  { at: 3700, type: "search_results",                      payload: { count: 9 } },
+  { at: 4000, type: "scrape_progress",    step: "read",    payload: { count: 4 } },
+  { at: 6200, type: "reflection",         step: "reflect", payload: { loop: 1, done: true } },
+  { at: 6400, type: "stage",              step: "write",   payload: { stage: "synthesize" } },
+  { at: 7600, type: "partial_answer",                      payload: { delta: "For most people, the best balance of noise cancelling, comfort and battery under $300 is an over-ear flagship from last year's line-up, now discounted." } },
+  { at: 9800, type: "final",                               payload: { intent: "shopping", picks: 3, sources: 8 },
+    ui: { picks: [["Sony WH-1000XM5", "best ANC overall"], ["Bose QuietComfort", "most comfortable"], ["Sennheiser Momentum 4", "best battery"]] } },
+  { at: 11200, type: "enrichment",                         payload: { artifact: { kind: "chart", title: "ANC vs price" } } }
+];
+</script>
+<script src="assets/main.js" defer></script>
+</body>
+</html>
