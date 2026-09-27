@@ -41,11 +41,12 @@
         A search for "best headphones under $300" should return a comparison of picks with prices, and a search
         for "3 days in Lisbon" should return an itinerary. Lensr works out which kind of question you asked,
         researches the live web with an agent built for it, and streams back a structured card with its sources.
+        It runs in production on Azure Container Apps, with Claude on AWS Bedrock.
       </p>
       <div class="btn-row">
         <a class="btn lensr" href="https://lensr.studio" target="_blank" rel="noopener">Try it at lensr.studio ↗</a>
         <a class="btn" href="#explorer">Follow a query →</a>
-        <a class="btn" href="https://github.com/shivang-7135/lensr" target="_blank" rel="noopener">Source ↗</a>
+        <a class="btn" href="https://github.com/shivang-7135/lensr-shivang/tree/production" target="_blank" rel="noopener">Source ↗</a>
       </div>
       <div class="kv">
         <div><b>35</b><span>intent-specific agents sharing one adaptive pipeline</span></div>
@@ -88,85 +89,153 @@
     <div class="wrap">
       <div class="section-head reveal">
         <span class="eyebrow">01 — Architecture</span>
-        <h2>Four services, one stream</h2>
-        <p>The browser never talks to the Python backend directly. A thin TanStack Start server on Vercel validates the request, attaches a shared secret and streams the backend's events back through to the browser. Supabase handles identity and data. The cache and the traces sit alongside the main request path.</p>
+        <h2>Two containers on Azure, one stream</h2>
+        <p>Lensr runs as two containers in one Azure Container Apps environment. The browser only ever talks to the <strong>frontend container</strong> (TanStack Start). It handles sign-in, validates each search, attaches a shared secret and streams the <strong>backend container's</strong> events straight back. Azure PostgreSQL holds users, saved searches and the vector cache, and Key Vault holds every secret. The models themselves still run on AWS Bedrock, so this is a deliberately multi-cloud setup.</p>
       </div>
       <p class="scroll-hint">← swipe to see the whole diagram →</p>
       <div class="diagram reveal" style="--c:var(--lensr)">
-        <svg viewBox="0 0 1000 600" role="img" aria-labelledby="lensr-arch-t">
-          <title id="lensr-arch-t">Lensr architecture: Browser to Vercel proxy to FastAPI backend, which calls Bedrock, Serper and web pages; Supabase for auth and cache; Phoenix for traces.</title>
+        <svg viewBox="0 0 1000 620" role="img" aria-labelledby="lensr-arch-t">
+          <title id="lensr-arch-t">Lensr architecture: the browser calls a TanStack Start frontend container on Azure Container Apps, which proxies to a FastAPI backend container. The backend calls AWS Bedrock, Serper and web pages. Azure PostgreSQL stores auth data and the vector cache, Blob Storage holds uploads, Key Vault supplies secrets, and telemetry goes to Application Insights and Phoenix. GitHub Actions deploys both containers.</title>
           <defs>
             <marker id="la" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" class="ah"/></marker>
             <marker id="lac" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" class="ah c"/></marker>
           </defs>
 
+          <!-- Azure zone -->
+          <rect class="zone" x="296" y="120" width="418" height="480" rx="14"/>
+          <text class="zl" x="316" y="586">Azure Container Apps · Sweden Central</text>
+
           <!-- edges -->
           <path class="edge c flow" d="M500 84 V146" marker-end="url(#lac)"/>
-          <text class="m" x="510" y="122">POST /api/search · SSE ⇅</text>
-          <path class="edge" d="M300 52 H145 V146" marker-end="url(#la)"/>
-          <text class="m" x="155" y="112">supabase-js: auth · RLS · storage</text>
-          <path class="edge c flow" d="M500 262 V316" marker-end="url(#lac)"/>
-          <text class="m" x="510" y="294">HTTPS + X-Backend-Secret</text>
-          <path class="edge c" d="M700 355 H756" marker-end="url(#lac)"/>
-          <path class="edge c" d="M700 445 H756" marker-end="url(#lac)"/>
-          <path class="edge c" d="M700 535 H756" marker-end="url(#lac)"/>
-          <path class="edge" d="M300 400 H145 V324" marker-end="url(#la)"/>
-          <text class="m" x="155" y="392">semantic cache</text>
-          <text class="m" x="155" y="418">(pgvector)</text>
-          <path class="edge dash" d="M300 520 H274" marker-end="url(#la)"/>
+          <text class="m" x="510" y="108">HTTPS · SSE ⇅</text>
+          <path class="edge c flow" d="M500 276 V316" marker-end="url(#lac)"/>
+          <text class="m" x="510" y="301">X-Backend-Secret</text>
+          <path class="edge" d="M316 200 H274" marker-end="url(#la)"/>
+          <path class="edge" d="M316 250 H286 V365 H274" marker-end="url(#la)"/>
+          <path class="edge" d="M316 470 H296 V290 H274" marker-end="url(#la)"/>
+          <path class="edge dash" d="M274 455 H292" marker-end="url(#la)"/>
+          <path class="edge dash" d="M316 540 H274" marker-end="url(#la)"/>
+          <path class="edge c" d="M696 355 H756" marker-end="url(#lac)"/>
+          <path class="edge c" d="M696 445 H756" marker-end="url(#lac)"/>
+          <path class="edge c" d="M696 535 H756" marker-end="url(#lac)"/>
+          <path class="edge dash" d="M760 200 H718" marker-end="url(#la)"/>
 
           <!-- Browser -->
           <rect class="box hl" x="300" y="20" width="400" height="64" rx="12"/>
           <text class="t" x="320" y="47">Browser</text>
           <text class="s" x="320" y="68">React 19 · TanStack Router · 10 result cards</text>
 
-          <!-- Supabase -->
-          <rect class="box" x="20" y="150" width="250" height="170" rx="12"/>
-          <text class="t" x="38" y="178">Supabase</text>
-          <text class="s" x="38" y="198">Postgres · Auth · Storage</text>
-          <text class="m" x="38" y="228">profiles · user_roles</text>
-          <text class="m" x="38" y="248">saved_searches · api_keys</text>
-          <text class="m" x="38" y="268">search_cache (vector 1024)</text>
-          <text class="m" x="38" y="296">RLS + has_role() everywhere</text>
+          <!-- Frontend container -->
+          <rect class="box" x="316" y="150" width="380" height="126" rx="12"/>
+          <text class="t" x="334" y="178">Frontend container · TanStack Start</text>
+          <text class="m" x="334" y="204">Better-Auth: email + Google OAuth</text>
+          <text class="m" x="334" y="224">POST /api/search → stream proxy</text>
+          <text class="m" x="334" y="244">origin allowlist · 8 KB · 2000 chars</text>
+          <text class="m" x="334" y="264">image upload → Blob (SAS URL)</text>
 
-          <!-- Vercel -->
-          <rect class="box" x="360" y="150" width="280" height="112" rx="12"/>
-          <text class="t" x="378" y="178">TanStack Start · Vercel</text>
-          <text class="m" x="378" y="204">origin allowlist</text>
-          <text class="m" x="378" y="224">body ≤ 8 KB · query ≤ 2000</text>
-          <text class="m" x="378" y="244">stream proxy → backend</text>
+          <!-- Backend container -->
+          <rect class="box hl" x="316" y="320" width="380" height="240" rx="12"/>
+          <text class="t" x="334" y="348">Backend container · FastAPI + LangGraph</text>
+          <text class="s" x="334" y="368">POST /search → text/event-stream</text>
+          <rect class="box sunk" x="332" y="382" width="348" height="164" rx="8"/>
+          <text class="m" x="346" y="406">router_graph  classify (Haiku 4.5)</text>
+          <text class="m" x="346" y="428">35 agents     plan → search → scrape</text>
+          <text class="m" x="346" y="448">              → reflect → synthesize</text>
+          <text class="m" x="346" y="474">tools/        serper · http2 scraper</text>
+          <text class="m" x="346" y="494">              · pgvector cache</text>
+          <text class="m" x="346" y="518">_enrichment   chart / table after answer</text>
+          <text class="m" x="346" y="538">telemetry     OTel → 2 exporters</text>
 
-          <!-- Backend -->
-          <rect class="box hl" x="300" y="320" width="400" height="250" rx="12"/>
-          <text class="t" x="320" y="348">FastAPI + LangGraph backend</text>
-          <text class="s" x="320" y="368">POST /search → text/event-stream</text>
-          <rect class="box sunk" x="320" y="384" width="360" height="170" rx="8"/>
-          <text class="m" x="336" y="408">router_graph   classify intent (Haiku)</text>
-          <text class="m" x="336" y="432">35 agents      keywords → plan → search</text>
-          <text class="m" x="336" y="452">               → scrape → reflect → synth</text>
-          <text class="m" x="336" y="480">tools/         serper · scraper · cache</text>
-          <text class="m" x="336" y="504">_enrichment    chart / table after answer</text>
-          <text class="m" x="336" y="532">observability  OTel spans per step</text>
+          <!-- Left column: Azure data services -->
+          <rect class="box" x="20" y="150" width="254" height="160" rx="12"/>
+          <text class="t" x="38" y="178">Azure PostgreSQL</text>
+          <text class="s" x="38" y="198">Flexible Server + pgvector</text>
+          <text class="m" x="38" y="226">users · sessions (Better-Auth)</text>
+          <text class="m" x="38" y="246">saved_searches · user_roles</text>
+          <text class="m" x="38" y="266">api_keys · uploaded_images</text>
+          <text class="m" x="38" y="290">search_cache  ivfflat cosine</text>
 
-          <!-- Externals -->
+          <rect class="box" x="20" y="330" width="254" height="70" rx="12"/>
+          <text class="t" x="38" y="358">Azure Blob Storage</text>
+          <text class="s" x="38" y="380">user-uploads · time-limited SAS</text>
+
+          <rect class="box" x="20" y="420" width="254" height="70" rx="12"/>
+          <text class="t" x="38" y="448">Azure Key Vault</text>
+          <text class="s" x="38" y="470">secrets injected at deploy time</text>
+
+          <rect class="box" x="20" y="510" width="254" height="90" rx="12"/>
+          <text class="t" x="38" y="538">App Insights + Phoenix</text>
+          <text class="s" x="38" y="558">same spans, two destinations</text>
+          <text class="m" x="38" y="584">Log Analytics · 30-day logs</text>
+
+          <!-- Right column -->
+          <rect class="box sunk" x="760" y="150" width="220" height="100" rx="12"/>
+          <text class="t" x="778" y="178">GitHub Actions</text>
+          <text class="s" x="778" y="198">on push to production</text>
+          <text class="m" x="778" y="222">images → GHCR :sha</text>
+          <text class="m" x="778" y="240">az containerapp update</text>
+
           <rect class="box" x="760" y="320" width="220" height="70" rx="12"/>
           <text class="t" x="778" y="348">AWS Bedrock</text>
-          <text class="s" x="778" y="370">Sonnet 4.5 · Haiku 4.5 · Titan</text>
+          <text class="s" x="778" y="370">Sonnet 4.6 · Haiku 4.5 · Titan</text>
           <rect class="box" x="760" y="410" width="220" height="70" rx="12"/>
           <text class="t" x="778" y="438">Serper.dev</text>
           <text class="s" x="778" y="460">Google SERP as JSON</text>
           <rect class="box" x="760" y="500" width="220" height="70" rx="12"/>
           <text class="t" x="778" y="528">Web pages</text>
           <text class="s" x="778" y="550">trafilatura · SSRF-guarded</text>
-
-          <!-- Phoenix -->
-          <rect class="box" x="20" y="470" width="250" height="100" rx="12"/>
-          <text class="t" x="38" y="498">Arize Phoenix</text>
-          <text class="s" x="38" y="518">traces grouped by session_id</text>
-          <text class="m" x="38" y="546">CHAIN · TOOL · LLM spans</text>
         </svg>
       </div>
-      <p class="diagram-caption">Solid coloured arrows show the request path. The dashed arrow shows telemetry. The backend is containerised (multi-stage, non-root) and ships with Fly.io and Render configs.</p>
+      <p class="diagram-caption">Solid coloured arrows show the live request path. Grey arrows show data access, and dashed arrows show secrets, telemetry and deployment. Each container runs at 0.25 vCPU / 0.5 GiB and scales between 1 and 3 replicas.</p>
+    </div>
+  </section>
+
+  <hr class="rule">
+
+  <!-- ── Production on Azure ───────────────────────── -->
+  <section id="azure">
+    <div class="wrap">
+      <div class="section-head reveal">
+        <span class="eyebrow">02 — Production</span>
+        <h2>From Vercel + Supabase to Azure</h2>
+        <p>Lensr started on managed platforms: Vercel for the web app, Supabase for the database, auth and storage, and Fly.io or Render for the Python backend. The production branch now runs everything I operate on Azure, defined as code in Bicep, while model calls stay on AWS Bedrock. Here is what moved and why.</p>
+      </div>
+      <div class="table-wrap reveal" style="margin-bottom:40px">
+        <table>
+          <thead><tr><th>Concern</th><th>Before</th><th class="lensr-c">Now (production)</th><th>What changed in practice</th></tr></thead>
+          <tbody>
+            <tr><td>Hosting</td><td>Vercel + Fly.io / Render</td><td>Azure Container Apps (2 apps, 1 env)</td><td>Frontend and backend share one environment, one log workspace and one deploy pipeline.</td></tr>
+            <tr><td>Database</td><td>Supabase Postgres</td><td>Azure PostgreSQL Flexible Server</td><td>Plain Postgres with <code>pgvector</code>. The cache uses an <code>ivfflat</code> cosine index.</td></tr>
+            <tr><td>Auth</td><td>Supabase Auth</td><td>Better-Auth</td><td>Email/password and Google OAuth, with sessions stored in the same Postgres and an admin plugin for roles.</td></tr>
+            <tr><td>Access control</td><td>Row-level security policies</td><td>Server functions + parameterised SQL</td><td>The browser no longer queries the database directly. Every read and write goes through server code.</td></tr>
+            <tr><td>File storage</td><td>Supabase Storage</td><td>Azure Blob Storage</td><td>Uploads are type- and size-checked (images only, ≤ 10 MB) and served through time-limited SAS URLs.</td></tr>
+            <tr><td>Secrets</td><td>Platform env vars</td><td>Azure Key Vault</td><td>Bicep reads each secret from Key Vault at deploy time and injects it as a Container App secret.</td></tr>
+            <tr><td>Observability</td><td>Arize Phoenix</td><td>Phoenix + Application Insights</td><td>One OpenTelemetry provider sends every span to both: Phoenix for LLM debugging, App Insights for ops.</td></tr>
+            <tr><td>Models</td><td>Claude Sonnet 4.5 (EU region)</td><td>Claude Sonnet 4.6 + Haiku 4.5</td><td>Called through Bedrock <em>global</em> inference profiles, which route to available capacity across regions.</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="two-col">
+        <div class="reveal">
+          <span class="eyebrow">Deploy pipeline</span>
+          <h3 style="margin-bottom:14px">One push to <code>production</code>, two new revisions</h3>
+          <ol class="timeline" style="list-style:none">
+            <li><b>Build &amp; test</b><span>ESLint, <code>tsc --noEmit</code> and a production build for the frontend; ruff lint, ruff format and mypy for the backend.</span></li>
+            <li><b>Build images</b><span>Each container image is tagged with the commit SHA and pushed to GitHub Container Registry.</span></li>
+            <li><b>Roll out</b><span><code>az containerapp update</code> points each app at its new image, and Container Apps starts a new revision.</span></li>
+            <li><b>Serve</b><span>Each app keeps at least one warm replica and scales out to three under load.</span></li>
+          </ol>
+        </div>
+        <div class="reveal">
+          <span class="eyebrow">Infrastructure as code</span>
+          <h3 style="margin-bottom:14px">The whole environment in three Bicep files</h3>
+          <div class="prose">
+            <p><code>main.bicep</code> creates the Log Analytics workspace (30-day retention, 1 GB/day cap), Application Insights, the Container Apps environment and Key Vault. It then calls <code>backendApp.bicep</code> and <code>frontendApp.bicep</code>, passing in the Key Vault secrets and each app's internal URL.</p>
+            <p>Because the environment is code, rebuilding it in another region or subscription is a single deployment rather than an afternoon of clicking through the portal.</p>
+          </div>
+        </div>
+      </div>
     </div>
   </section>
 
@@ -176,7 +245,7 @@
   <section id="explorer">
     <div class="wrap">
       <div class="section-head reveal">
-        <span class="eyebrow">02 — Data flow</span>
+        <span class="eyebrow">03 — Data flow</span>
         <h2>Follow one query, step by step</h2>
         <p>We'll trace <code>best noise cancelling headphones under $300</code> through the system. Click a stage, use the arrow keys, or press Play. Switch between <strong>Deep</strong> and <strong>Fast</strong> mode to see which steps drop out when speed matters more than depth.</p>
       </div>
@@ -190,7 +259,7 @@
   <section id="stream">
     <div class="wrap">
       <div class="section-head reveal">
-        <span class="eyebrow">03 — Streaming</span>
+        <span class="eyebrow">04 — Streaming</span>
         <h2>Why the wait doesn't feel like waiting</h2>
         <p>A deep answer takes several seconds, but the UI updates from the first 100 ms because the backend <em>yields</em> an event at every step. Replay a (simulated) stream below: the event log on the left drives the interface on the right.</p>
       </div>
@@ -228,16 +297,16 @@
   <section id="decisions">
     <div class="wrap">
       <div class="section-head reveal">
-        <span class="eyebrow">04 — Design decisions</span>
+        <span class="eyebrow">05 — Design decisions</span>
         <h2>Trade-offs worth explaining</h2>
       </div>
       <div class="grid-3">
         <div class="card reveal"><span class="k">latency</span><h3>Search before you know why</h3><p>A generic web search starts <em>at the same moment</em> as intent classification. By the time Haiku returns "shopping", seed results are already arriving, which removes a full round-trip from the critical path.</p></div>
-        <div class="card reveal"><span class="k">cost × quality</span><h3>Right model for the job</h3><p>Haiku handles routing and simple intents (weather, news, sports, general) plus all Fast-mode synthesis. Sonnet is used only for Deep-mode answers that need real reasoning, such as comparisons, trips and shopping.</p></div>
+        <div class="card reveal"><span class="k">cost × quality</span><h3>Model tier follows the mode</h3><p>Haiku 4.5 handles intent routing and everything in Fast mode. Deep mode is the paid-for experience (it requires sign-in), so it uses Sonnet 4.6 for planning, reflection and synthesis on every intent. A single user choice decides the cost and quality trade-off.</p></div>
         <div class="card reveal"><span class="k">robustness</span><h3>Never block on the LLM</h3><p>Classification has a 5 s timeout that falls back to <code>general</code>. Cache lookup has a 3 s budget. Cache writes run as fire-and-forget tasks, so a slow database never delays an answer.</p></div>
         <div class="card reveal"><span class="k">ux</span><h3>Guaranteed CTAs and media</h3><p>LLMs sometimes forget to include links. The pipeline adds the right action anyway (Amazon, Maps, Booking.com, Keepa) and fills in images from Wikipedia or Open Graph tags.</p></div>
         <div class="card reveal"><span class="k">progressive</span><h3>Enrichment after "final"</h3><p>Charts, tables and timelines are generated <em>after</em> the answer is delivered. If enrichment fails, the user already has a complete answer, so the extra visuals can never break the main result.</p></div>
-        <div class="card reveal"><span class="k">security</span><h3>Defence in depth</h3><p>RLS on every table, a separate <code>user_roles</code> table (so users can't promote themselves), a timing-safe secret check, a private-IP block-list on the scraper, and a server that refuses to start with the default secret.</p></div>
+        <div class="card reveal"><span class="k">security</span><h3>Defence in depth</h3><p>Secrets live only in Azure Key Vault. All SQL is parameterised, and the browser never queries the database directly. Admin rights sit in a separate role table. On top of that: a timing-safe secret check between containers, a private-IP block-list on the scraper, and uploads restricted by type and size and served through expiring SAS URLs.</p></div>
       </div>
     </div>
   </section>
@@ -248,18 +317,21 @@
   <section id="learn">
     <div class="wrap">
       <div class="section-head reveal">
-        <span class="eyebrow">05 — Learn the concepts</span>
+        <span class="eyebrow">06 — Learn the concepts</span>
         <h2>Glossary for the curious</h2>
         <p>New to some of these terms? Each one is explained here in plain language, with a note on where it appears in Lensr.</p>
       </div>
       <div class="glossary reveal">
-        <details><summary>Server-Sent Events (SSE) <span class="where">browser ⇠ backend</span></summary><div class="body">A long-lived HTTP response with the content type <code>text/event-stream</code>. The server keeps writing small <code>data: {...}</code> messages as work progresses. It is simpler than WebSockets because it only flows one way (server to browser), which is all a progress stream needs, and it passes cleanly through Vercel's proxy.</div></details>
+        <details><summary>Server-Sent Events (SSE) <span class="where">browser ⇠ backend</span></summary><div class="body">A long-lived HTTP response with the content type <code>text/event-stream</code>. The server keeps writing small <code>data: {...}</code> messages as work progresses. It is simpler than WebSockets because it only flows one way (server to browser), which is all a progress stream needs, and it passes cleanly through a proxy such as the frontend container.</div></details>
         <details><summary>Intent classification <span class="where">router_graph.py</span></summary><div class="body">Deciding <em>what kind</em> of question this is before answering it. Lensr sends a compact prompt that lists all 35 intents and a few rules (for example "vs" → comparison, "how to" → howto) to a small, fast model, and asks for JSON only: <code>{"intent": "shopping"}</code>. Anything it can't parse becomes <code>general</code>.</div></details>
         <details><summary>Semantic cache &amp; cosine similarity <span class="where">tools/cache.py</span></summary><div class="body">A normal cache matches exact strings. A semantic cache matches <em>meaning</em>. Each query is turned into a 1024-number vector (an "embedding") with Amazon Titan. Two queries whose vectors point in almost the same direction (cosine similarity ≥ 0.88) count as the same question, so "top ANC headphones below 300" can reuse the answer to "best noise cancelling headphones under $300".</div></details>
         <details><summary>Reflection loop <span class="where">_pipeline.py · Deep mode</span></summary><div class="body">After the first round of research, the model is asked: <em>"Do I have enough evidence to answer well?"</em> If not, it writes follow-up queries and runs another round. Lensr caps this at one extra round (<code>MAX_LOOPS = 2</code>), which keeps most of the quality gain while bounding latency and cost.</div></details>
         <details><summary>Structured output <span class="where">per-agent schemas</span></summary><div class="body">Instead of asking for prose, each agent asks the model to fill a JSON schema. The shopping agent, for example, uses <code>{tldr, picks[], comparison_table, detail_markdown}</code>. The frontend renders those fields with real components, which is why answers look like product UI rather than chat.</div></details>
         <details><summary>SSRF protection <span class="where">tools/scraper.py</span></summary><div class="body">Server-Side Request Forgery happens when an attacker tricks your server into fetching an internal URL (such as a cloud metadata endpoint). Since Lensr fetches URLs that come from search results, the scraper blocks private ranges (10.x, 172.16–31.x, 192.168.x, 169.254.x) and localhost before any request goes out.</div></details>
-        <details><summary>Row-Level Security (RLS) <span class="where">supabase/migrations</span></summary><div class="body">Postgres rules that filter rows <em>inside the database</em> based on who is asking. Even if the frontend has a bug, a user can only read their own saved searches. A <code>SECURITY DEFINER</code> helper, <code>has_role()</code>, checks admin rights without the policy recursing into itself.</div></details>
+        <details><summary>Infrastructure as Code (Bicep) <span class="where">infra/*.bicep</span></summary><div class="body">Instead of creating cloud resources by hand in a portal, you describe them in files and let Azure make reality match. Lensr's <code>main.bicep</code> declares the log workspace, Application Insights, the Container Apps environment and Key Vault, then two modules for the frontend and backend apps. The files are version-controlled, reviewable and repeatable.</div></details>
+        <details><summary>Azure Key Vault <span class="where">infra/main.bicep</span></summary><div class="body">A managed store for secrets (API keys, database URLs, OAuth credentials). Lensr's Bicep template reads each value with <code>keyVault.getSecret(...)</code> during deployment and passes it to the container as a Container App secret. Secrets never appear in the repo, the workflow logs or the image.</div></details>
+        <details><summary>SAS URLs <span class="where">lib/storage.server.ts</span></summary><div class="body">A Shared Access Signature is a URL to one blob with a signed, expiring permission attached, for example "read this image for the next hour". The storage account stays private. The server hands out short-lived links only to the files a user is allowed to see.</div></details>
+        <details><summary>Global inference profiles <span class="where">BEDROCK_MODEL_* </span></summary><div class="body">On AWS Bedrock, a model ID prefixed with <code>global.</code> (for example <code>global.anthropic.claude-sonnet-4-6</code>) lets Bedrock route each request to whichever region has capacity. That means fewer throttling errors at peak times, at the cost of not pinning traffic to one region.</div></details>
         <details><summary>Timing-safe comparison <span class="where">main.py · api routes</span></summary><div class="body">A normal <code>==</code> stops at the first mismatched character, so an attacker can guess a secret one character at a time by measuring response times. <code>hmac.compare_digest</code> and <code>crypto.timingSafeEqual</code> always take the same time, whatever the input.</div></details>
       </div>
     </div>
@@ -295,7 +367,7 @@ window.PIPELINES = {
       {
         title: "User submits a query", who: "browser",
         tags: ["Browser", "routes/results.tsx"],
-        what: "The search bar posts the query, the chosen speed mode and a <code>session_id</code> (a UUID that stays stable per browser tab, so every search in the tab is grouped under one trace session). Deep mode requires a Google sign-in, while Fast mode is open to everyone.",
+        what: "The search bar posts the query, the chosen speed mode and a <code>session_id</code> (a UUID that stays stable per browser tab, so every search in the tab is grouped under one trace session). Deep mode requires signing in (email or Google, via Better-Auth), while Fast mode is open to everyone.",
         why: "Sending the <code>session_id</code> from the client means observability starts in the browser, so a whole browsing session can be replayed in Phoenix.",
         data: `// POST /api/search
 {
@@ -305,10 +377,10 @@ window.PIPELINES = {
 }`
       },
       {
-        title: "Edge proxy validates", who: "vercel",
-        tags: ["TanStack Start", "Vercel", "api/search.ts"],
-        what: "A server route on Vercel checks the <code>Origin</code> header against an allowlist, rejects bodies over 8 KB and queries over 2000 characters, then opens a request to the Python backend with a secret header. It streams the response straight back without buffering it.",
-        why: "Keeping the backend URL and secret server-side means the browser never sees them. The proxy is also the one place where CORS and abuse limits are enforced.",
+        title: "Frontend server validates", who: "frontend",
+        tags: ["TanStack Start", "Azure Container Apps", "api/search.ts"],
+        what: "A server route in the frontend container checks the <code>Origin</code> header against an allowlist, rejects bodies over 8 KB and queries over 2000 characters, then opens a request to the Python backend with a secret header. It streams the response straight back without buffering it.",
+        why: "Keeping the backend URL and secret server-side (the secret comes from Key Vault) means the browser never sees them. The proxy is also the one place where CORS and abuse limits are enforced.",
         data: `// forwarded upstream
 POST https://backend/search
 X-Backend-Secret: ••••••••
@@ -323,7 +395,7 @@ Accept: text/event-stream`
       },
       {
         title: "Semantic cache check", who: "pgvector",
-        tags: ["Supabase pgvector", "Titan Embeddings v2", "tools/cache.py"],
+        tags: ["Azure PostgreSQL · pgvector", "Titan Embeddings v2", "tools/cache.py"],
         skipIn: ["deep"],
         what: "The query is embedded into a 1024-dimensional vector and compared with recently answered queries. If one is at least 0.88 cosine-similar and under 24 h old, Lensr cancels all in-flight work and replays the cached answer.",
         modeNote: { fast: "Cache lookups have a 3-second budget. A hit returns the full structured answer in well under a second." },
@@ -331,13 +403,13 @@ Accept: text/event-stream`
         data: `// cache hit → skip everything below
 {"type": "intent_detected", "intent": "shopping"}
 {"type": "cache_hit", "cached": true}
-{"type": "final", "structured": {...}, "cached": true}`
+{"type": "final", "model": "Instant Cache", "structured": {...}, "cached": true}`
       },
       {
         title: "Classify intent", who: "haiku",
         tags: ["Bedrock · Claude Haiku 4.5", "5 s timeout"],
         what: "A compact classification prompt asks the fast model to return exactly one of 35 intents as JSON. <strong>At the same time</strong>, a speculative Google search for the raw query is already running in the background.",
-        why: "Running classification and search in parallel hides the classification latency. If the model times out or returns something unknown, Lensr uses <code>general</code> instead of failing.",
+        why: "Running classification and search in parallel hides the classification latency. If the model times out, errors or returns something unknown, Lensr uses <code>general</code> instead of failing.",
         data: `// model output
 {"intent": "shopping"}
 
@@ -345,9 +417,9 @@ Accept: text/event-stream`
 {"type": "intent_detected", "intent": "shopping"}`
       },
       {
-        title: "Keywords & search plan", who: "llm",
+        title: "Keywords & search plan", who: "sonnet",
         tags: ["agents/shopping.py", "_pipeline.py"],
-        what: "The shopping agent turns the query into keywords plus a set of different search angles (reviews, price comparisons, recent roundups), all from one combined LLM call.",
+        what: "The shopping agent turns the query into keywords plus a set of different search angles (reviews, price comparisons, recent roundups), all from one combined LLM call. In Deep mode this planning call runs on Sonnet 4.6.",
         modeNote: { fast: "No LLM planner. Queries come straight from the input and the seed search, saving a whole model round-trip." },
         why: "Different angles surface different sources. Doing keywords and planning in <em>one</em> call instead of two saves about a second.",
         data: `{"type": "keywords_extracted",
@@ -370,28 +442,29 @@ Accept: text/event-stream`
       },
       {
         title: "Scrape top pages", who: "scraper",
-        tags: ["trafilatura", "6 s timeout", "SSRF guard"],
-        what: "The most promising URLs are fetched and cleaned into readable text with trafilatura, which strips navigation, ads and boilerplate. Private and internal IP ranges are blocked before any request is made.",
-        modeNote: { fast: "Scraping is capped to the top 2 pages. Snippets carry most of the evidence." },
-        why: "Search snippets are too short for good comparisons. Full-page text gives the model real specs and prices. The per-page timeout stops one slow site from holding everything up.",
+        tags: ["trafilatura", "httpx · HTTP/2 pool", "SSRF guard"],
+        skipIn: ["fast"],
+        what: "Up to 6 of the most promising URLs are fetched in parallel over a persistent HTTP/2 connection pool, then cleaned into readable text with trafilatura, which strips navigation, ads and boilerplate. Private and internal IP ranges are blocked before any request is made.",
+        modeNote: { fast: "Skipped entirely. Fast mode answers from up to 6 search snippets instead of full pages." },
+        why: "Search snippets are too short for good comparisons, while full-page text gives the model real specs and prices. Each page gets 5 s and the whole batch 8 s, and whatever finishes in time is used, so one slow site can't hold everything up. Reusing TLS connections across requests saves a handshake per page.",
         data: `{"type": "scrape_progress", "count": 4}
 // evidence[i] = {url, title, text: "...2,400 words of clean article text..."}`
       },
       {
         title: "Reflect on evidence", who: "llm",
-        tags: ["Deep mode only", "MAX_LOOPS = 2"],
+        tags: ["Deep mode only", "Sonnet 4.6", "MAX_LOOPS = 2"],
         skipIn: ["fast"],
-        what: "The model reviews what it has collected and decides whether the evidence is sufficient. If it isn't (for example, no current prices), it writes follow-up queries and runs one more search-and-scrape round.",
-        why: "One reflection pass catches the most common gap (a missing angle) at the cost of a single extra round. Further loops add latency for little gain.",
+        what: "First a cheap rule-based check: if there are at least 5 scraped pages, 8,000+ characters of evidence and 3 or more keywords covered, reflection is skipped. Otherwise Sonnet reviews the evidence and, if something is missing (for example current prices), writes follow-up queries for one more search-and-scrape round. Simple lookup intents (recipes, movies, events, places) never reflect.",
+        why: "The rule-based check avoids an LLM call when the evidence is clearly good enough. When it isn't, a stronger model decides what's missing. One extra round catches the common gaps, and further loops add latency for little gain.",
         data: `{"type": "reflection", "loop": 1, "done": false,
  "missing": "current prices", "followup_queries": ["Sennheiser Momentum 4 current price"]}
 {"type": "stage", "stage": "search_loop_2"}`
       },
       {
         title: "Synthesize structured answer", who: "sonnet",
-        tags: ["Bedrock · Claude Sonnet 4.5", "intent schema"],
+        tags: ["Bedrock · Claude Sonnet 4.6", "intent schema", "45 s budget"],
         what: "The model fills the shopping schema (picks, comparison table and a TL;DR) using only the gathered evidence and citing sources. Fields stream out as soon as they are ready, starting with the TL;DR.",
-        modeNote: { fast: "Synthesis uses Haiku with a larger token budget, trading a little nuance for speed." },
+        modeNote: { fast: "Synthesis uses Haiku 4.5 with a 12 s budget, trading a little nuance for speed.", deep: "Every intent, even simple ones, is synthesised by Sonnet 4.6 with up to 4,096 output tokens." },
         why: "Structured JSON instead of free text lets the frontend render real UI components, and makes answers comparable and cacheable.",
         data: `{"type": "partial_structured", "field": "tldr", "value": "For most people..."}
 {"type": "final", "intent": "shopping",

@@ -75,7 +75,7 @@
             <a class="product-url" href="https://lensr.studio" target="_blank" rel="noopener">lensr.studio ↗</a>
           </div>
           <p class="tagline">Ask anything and get a structured answer card instead of a page of links.</p>
-          <p>Lensr works out what you are trying to do (shop, plan a trip, cook, compare), sends the query to one of 35 specialised agents, searches and reads the live web, and streams back a card built for that task, with every source cited.</p>
+          <p>Lensr works out what you are trying to do (shop, plan a trip, cook, compare), sends the query to one of 35 specialised agents, searches and reads the live web, and streams back a card built for that task, with every source cited. It runs on Azure Container Apps, with Claude on AWS Bedrock.</p>
           <div class="stats">
             <div class="stat"><b>35</b><span>intent agents</span></div>
             <div class="stat"><b>10</b><span>purpose-built result cards</span></div>
@@ -138,7 +138,7 @@
             <li><strong>Streams every step</strong> over Server-Sent Events, so you watch it work instead of staring at a spinner.</li>
             <li><strong>Runs steps in parallel.</strong> The web search starts before intent classification finishes.</li>
             <li><strong>Semantic cache.</strong> A similar enough question from the last 24h returns instantly.</li>
-            <li><strong>Picks the model to fit the task:</strong> Haiku for routing and simple intents, Sonnet for deep synthesis.</li>
+            <li><strong>The model tier follows the mode:</strong> Haiku 4.5 for routing and Fast answers, Sonnet 4.6 for Deep research.</li>
           </ul>
         </div>
         <div class="compare-col reveal" style="--c:var(--daily)">
@@ -171,9 +171,9 @@
         <div class="card reveal"><span class="k">orchestration</span><h3>Typed agent graphs</h3><p>Both pipelines are LangGraph state machines. Each node reads and writes named keys on a typed state object, which makes every step inspectable, testable and easy to reorder.</p></div>
         <div class="card reveal"><span class="k">resilience</span><h3>Graceful fallbacks</h3><p>If intent classification times out, Lensr answers as <code>general</code>. DailyAI falls back from one LLM provider to the next, and finally to plain RSS summaries. Users still get an answer when something fails.</p></div>
         <div class="card reveal"><span class="k">cost</span><h3>Cache the expensive thing</h3><p>Lensr uses a pgvector semantic cache (Titan embeddings, cosine ≥ 0.88, 24h TTL). DailyAI stores its summaries in the database and reuses them for every reader.</p></div>
-        <div class="card reveal"><span class="k">observability</span><h3>Traced with Arize Phoenix</h3><p>Every LLM call, tool call and pipeline step is sent as an OpenTelemetry span and grouped by session. That way I can see what the model saw, how long it took and what it cost.</p></div>
-        <div class="card reveal"><span class="k">security</span><h3>Secure by default</h3><p>Row-level security on every table, timing-safe secret comparison, an origin allowlist, an SSRF block-list on the scraper, a non-root Docker image, and a server that refuses to start with an insecure default secret.</p></div>
-        <div class="card reveal"><span class="k">delivery</span><h3>CI, containers, deploy files</h3><p>GitHub Actions for lint, type-check and build. Multi-stage Dockerfiles. Ready-to-use configs for Vercel, Fly.io, Render and Docker Compose.</p></div>
+        <div class="card reveal"><span class="k">observability</span><h3>Traced end to end</h3><p>Every LLM call, tool call and pipeline step is sent as an OpenTelemetry span and grouped by session, to Arize Phoenix for LLM debugging and, for Lensr, also to Azure Application Insights for operations.</p></div>
+        <div class="card reveal"><span class="k">security</span><h3>Secure by default</h3><p>Secrets kept in Azure Key Vault, parameterised SQL, timing-safe secret comparison, an origin allowlist, an SSRF block-list on the scraper, and non-root Docker images.</p></div>
+        <div class="card reveal"><span class="k">delivery</span><h3>Infrastructure as code, CI/CD</h3><p>Lensr's whole Azure environment is defined in Bicep. A push to <code>production</code> lints, type-checks and builds, then ships SHA-tagged images to Azure Container Apps. DailyAI ships with Docker, Compose and Render configs.</p></div>
       </div>
     </div>
   </section>
@@ -191,15 +191,16 @@
         <table>
           <thead><tr><th>Layer</th><th class="lensr-c">Lensr</th><th class="daily-c">DailyAI</th></tr></thead>
           <tbody>
-            <tr><td>Frontend</td><td>React 19, TanStack Start/Router, Tailwind v4, shadcn/ui</td><td>React 19, Vite, React Router, installable PWA</td></tr>
+            <tr><td>Frontend</td><td>React 19, TanStack Start/Router, Tailwind v4, shadcn/ui, Framer Motion</td><td>React 19, Vite, React Router, installable PWA</td></tr>
             <tr><td>API</td><td>TanStack server routes (SSE proxy) → FastAPI</td><td>FastAPI (serves both the API and the built SPA)</td></tr>
             <tr><td>Orchestration</td><td>LangGraph router + 35 per-intent pipelines</td><td>LangGraph, 9-node linear news pipeline</td></tr>
-            <tr><td>Models</td><td>AWS Bedrock: Claude Sonnet 4.5, Haiku 4.5, Vision; Titan embeddings</td><td>OpenAI by default; fallback chain across Gemini, Groq, NVIDIA, HF, Ollama</td></tr>
-            <tr><td>Retrieval</td><td>Serper (Google SERP) + trafilatura scraper</td><td>Google News RSS (+ optional Serper News) + scraper</td></tr>
-            <tr><td>Data</td><td>Supabase Postgres, RLS, Storage, pgvector cache</td><td>SQLite (default) or Supabase</td></tr>
-            <tr><td>Auth</td><td>Supabase email + Google OAuth, role table</td><td>Anonymous profiles with a sync code, so no account is needed</td></tr>
+            <tr><td>Models</td><td>AWS Bedrock (global inference): Claude Sonnet 4.6, Haiku 4.5; Titan embeddings</td><td>OpenAI by default; fallback chain across Gemini, Groq, NVIDIA, HF, Ollama</td></tr>
+            <tr><td>Retrieval</td><td>Serper (Google SERP) + HTTP/2 trafilatura scraper</td><td>Google News RSS (+ optional Serper News) + scraper</td></tr>
+            <tr><td>Data</td><td>Azure PostgreSQL Flexible Server + pgvector, Azure Blob Storage</td><td>SQLite (default) or Supabase</td></tr>
+            <tr><td>Auth</td><td>Better-Auth: email + Google OAuth, admin roles</td><td>Anonymous profiles with a sync code, so no account is needed</td></tr>
+            <tr><td>Observability</td><td>Arize Phoenix + Azure Application Insights</td><td>Arize Phoenix (optional) + output-quality score</td></tr>
             <tr><td>Delivery</td><td>SSE stream to the browser</td><td>Web, email (Mailgun daily edition), web push</td></tr>
-            <tr><td>Hosting</td><td>Vercel (web) + Docker on Fly.io / Render</td><td>Docker / Render / Heroku buildpack</td></tr>
+            <tr><td>Hosting</td><td>Azure Container Apps (Bicep, Key Vault, GHCR images)</td><td>Docker / Render / Heroku buildpack</td></tr>
           </tbody>
         </table>
       </div>

@@ -4,7 +4,7 @@ Personal site for Shivang Sinha, showcasing two live AI products and explaining 
 
 | Product | Live | Source | Deep dive |
 | --- | --- | --- | --- |
-| **Lensr**: intent-aware AI search | [lensr.studio](https://lensr.studio) | [shivang-7135/lensr](https://github.com/shivang-7135/lensr) | `lensr.html` |
+| **Lensr**: intent-aware AI search | [lensr.studio](https://lensr.studio) | [lensr-shivang @ production](https://github.com/shivang-7135/lensr-shivang/tree/production) | `lensr.html` |
 | **DailyAI**: AI news, summarised once | [dailyai.site](https://dailyai.site) | [shivang-7135/aiNews](https://github.com/shivang-7135/aiNews) | `dailyai.html` |
 
 A plain static site with no build step, no framework and no dependencies (Google Fonts only).
