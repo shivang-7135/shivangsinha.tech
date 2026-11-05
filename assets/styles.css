@@ -451,3 +451,55 @@ pre.code .c { color: #7c7a8a; }
 .defence code.where { font-size: 12px; color: var(--ink-3); background: none; border: 0; padding: 0; }
 .honest { margin-top: 20px; }
 @media (max-width: 440px) { .brand .bn { display: none; } .nav a { padding: 6px 8px; } }
+
+/* ── Portfolio link (back to shivangsinha.site) ───────────── */
+.nav a.portfolio-pill {
+  display: inline-flex; align-items: center; gap: 6px;
+  color: var(--accent); font-weight: 500;
+  border: 1px solid color-mix(in srgb, var(--accent) 40%, transparent);
+  background: color-mix(in srgb, var(--accent) 8%, var(--bg-elev));
+  border-radius: 999px; padding: 5px 12px; margin-right: 4px;
+}
+.nav a.portfolio-pill:hover { color: var(--accent); background: color-mix(in srgb, var(--accent) 16%, var(--bg-elev)); }
+.portfolio-pill svg { width: 15px; height: 15px; flex: none; }
+@media (max-width: 560px) {
+  .nav a.portfolio-pill { padding: 6px 8px; }
+  .nav a.portfolio-pill .pp-text { display: none; }
+}
+
+.portfolio-ribbon {
+  position: relative; display: inline-flex; align-items: center; gap: 12px;
+  max-width: 100%; margin-bottom: 28px; padding: 6px 16px 6px 6px;
+  border-radius: 999px; text-decoration: none; color: var(--ink-2); font-size: 14.5px;
+  background:
+    linear-gradient(var(--bg-elev), var(--bg-elev)) padding-box,
+    linear-gradient(120deg, var(--accent), var(--lensr), var(--daily), var(--accent)) border-box;
+  background-size: 100% 100%, 300% 100%;
+  border: 1.5px solid transparent;
+  box-shadow: var(--shadow);
+  animation: ribbon-flow 8s linear infinite;
+  transition: transform .15s ease;
+}
+.portfolio-ribbon:hover { transform: translateY(-1px); color: var(--ink); }
+.portfolio-ribbon .pr-tag {
+  display: inline-flex; align-items: center; gap: 6px; flex: none;
+  background: var(--accent); color: #fff; border-radius: 999px; padding: 4px 11px;
+  font-family: var(--font-mono); font-size: 12px; letter-spacing: .06em; text-transform: uppercase;
+}
+.portfolio-ribbon .pr-tag svg { width: 14px; height: 14px; transition: transform .2s ease; }
+.portfolio-ribbon:hover .pr-tag svg { transform: translateX(-3px); }
+.portfolio-ribbon .pr-text { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.portfolio-ribbon b { color: var(--ink); font-weight: 600; }
+:root[data-theme="dark"] .portfolio-ribbon .pr-tag { color: #111; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .portfolio-ribbon .pr-tag { color: #111; } }
+@keyframes ribbon-flow { to { background-position: 0 0, 300% 0; } }
+@media (prefers-reduced-motion: reduce) { .portfolio-ribbon { animation: none; } }
+
+.btn.portfolio { background: var(--accent); color: #fff; border-color: var(--accent); }
+:root[data-theme="dark"] .btn.portfolio { color: #111; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .btn.portfolio { color: #111; } }
+.site-footer a.footer-portfolio { color: var(--accent); font-weight: 500; }
+@media (max-width: 560px) {
+  .portfolio-ribbon { border-radius: 18px; align-items: flex-start; padding: 6px 12px 6px 6px; }
+  .portfolio-ribbon .pr-text { white-space: normal; line-height: 1.4; padding-top: 2px; }
+}
